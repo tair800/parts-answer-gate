@@ -405,13 +405,48 @@ API key**, against a **free Neon PostgreSQL 16 with pgvector 0.8.0** in the same
   connect, `hnsw.ef_search` among them, and a transaction-mode pooler discards them: the deployed
   service would search at a different beam width from the one every published figure was measured
   at.
-- **Free instances sleep.** The first request after idle can take the better part of a minute, and
-  the first question after that pays once for loading the encoder.
+- **Free instances sleep.** The first request after idle can take the better part of a minute.
+- **Query vectors come from the same build-time cache, and the page says so.** The encoder is a
+  multilingual model whose loaded session measures **671 MB** resident against the instance's 512,
+  so this deployment serves precomputed query vectors. `Embedder.embed_query(text)` is
+  `embed_documents([text])[0]` — no query or passage prefix — so a cached vector is the vector the
+  encoder would have produced, and retrieval is unchanged: the same hybrid search over the same
+  index, the same fusion, the same gate. The cost is that free text outside the corpus has no
+  vector, and such a question is **refused with an explanation** rather than searched for with a
+  vector the instance does not have. Every question the corpus contains is answerable live.
+
+### What the deployment was asked, and what it answered
+
+`artifacts/live_retrieval.json`, written by `scripts/live_proof.py`, which asks the running service
+over HTTP and checks the replies. All seven hold:
+
+| | |
+|---|---|
+| a supported question | answered, citing revision D, section 1.12, **52 Nm** |
+| a machine the corpus has never heard of | refused, no evidence attached |
+| the same question asked as of 2021 | revision B, **44 Nm** — valid time |
+| pinned to the knowledge of 2021 | the belief held then, **9 bar** — knowledge time |
+| the same date, current knowledge | the correction that replaced it, **8 bar** |
+| a question naming AX7-160 | never answered from AX7-160P, AX7-165 or a withdrawn revision |
+| the same question with no machine named | escalated to review, not guessed from whichever variant ranked first |
+
+The same file records **kill condition E failing, live**: asked for an attribute the machine does
+not have, the deployed gate answers at 0.60 term coverage instead of abstaining. It is recorded and
+not asserted, because pinning it to either outcome would be dishonest in a different direction.
+
+`artifacts/live_pgvector.json`, written by `scripts/live_pgvector.py`, is the deployed database
+describing itself out of `pg_catalog` and out of the planner's own output rather than out of a
+migration that was meant to have run. The DSN is read from the environment and the artifact records
+the host as its provider and region only.
 
 **A live pgvector deployment does not retroactively make kill condition K pass.** K asks for a
 vector *index scan* in the query plan. The effectivity filter reduces the candidate set to about 21
 rows, for which PostgreSQL correctly prefers a sequential scan, and K fails on exactly that. The
 infrastructure is real; the criterion asked for a plan that would have been the wrong one.
+
+**Three live queries are not the multilingual evaluation.** `live_retrieval.json` ends with one
+question per language, which shows the deployment serves all three. The per-language scores are in
+`multilingual.json`, measured over the whole corpus, and the two must not be quoted as each other.
 
 ## Running it
 

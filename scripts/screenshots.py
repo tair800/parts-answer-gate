@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import difflib
 import json
 import socket
 import subprocess
@@ -71,6 +72,65 @@ def _wait_for(base_url: str, timeout: float = 90.0) -> bool:
     return False
 
 
+def _bitemporal_question(
+    questions: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    correction: dict[str, Any] | None,
+) -> dict[str, str]:
+    """Find a question whose answer a later correction changed, and the dates that show it.
+
+    The two knowledge-time screens are the ones worth taking, and both of them were wrong. They
+    asked the free-text query `specification`, which worked when the deployment ran the encoder and
+    stopped working the day it began serving precomputed query vectors: the shots would have shown
+    the panel explaining what the instance cannot encode, captioned as the project's central
+    demonstration.
+
+    So the question is derived from the correction itself. Take the first corrected document and its
+    correction, diff them, read the changed line, and find the corpus question whose expected answer
+    is the figure that changed and whose variant the line names. Then ask it twice inside the
+    document's own validity window: once with current knowledge, which returns the correction, and
+    once pinned to the knowledge of the time, which returns what was believed then.
+
+    The question's own `as_of` is not used. It belongs to whichever revision was in force when the
+    question was written, and the shot needs a date inside the corrected revision's window.
+    """
+    if correction is None:
+        return {}
+    by_id = {str(d["document_id"]): d for d in documents}
+    replacement = by_id.get(str(correction["corrected_by"]))
+    if replacement is None:
+        return {}
+
+    changed = [
+        line[1:]
+        for line in difflib.unified_diff(
+            str(correction["text"]).splitlines(),
+            str(replacement["text"]).splitlines(),
+            lineterm="",
+            n=0,
+        )
+        if line.startswith("-") and not line.startswith("---") and "Document doc-" not in line
+    ]
+    if not changed:
+        return {}
+    line = changed[0]
+
+    for question in sorted(questions, key=lambda q: str(q["question_id"])):
+        span = str(question.get("expected_answer_span") or "")
+        variant = str(question.get("variant_id") or "")
+        if question["language"] != "en" or not span or not variant:
+            continue
+        if span in line and variant in line:
+            return {
+                "bitemporal": str(question["text"]),
+                "bitemporal_variant": variant,
+                "bitemporal_as_of": str(correction["valid_from"]),
+                "bitemporal_known_as_of": str(correction["known_from"]),
+                "bitemporal_then_value": span,
+            }
+    return {}
+
+
 def _example_question() -> dict[str, str]:
     """Real subjects for each screen, chosen from the corpus **and from the measured result**.
 
@@ -92,6 +152,15 @@ def _example_question() -> dict[str, str]:
         key=lambda q: str(q["question_id"]),
     )[0]
 
+    # The same question in the same language the caption claims. An earlier version captured the
+    # English text with `lang=tr` and captioned it "the same question in Turkish", which showed a
+    # language filter rather than a translation and would have been read as the second.
+    parallel = {
+        str(q["language"]): str(q["text"])
+        for q in questions
+        if q["parallel_group"] == answerable["parallel_group"]
+    }
+
     documents = json.loads((CORPUS / "documents.json").read_text(encoding="utf-8"))
     documents = documents["documents"] if isinstance(documents, dict) else documents
     corrected = sorted(
@@ -99,6 +168,7 @@ def _example_question() -> dict[str, str]:
         key=lambda d: str(d["document_id"]),
     )
     correction = corrected[0] if corrected else None
+    bitemporal = _bitemporal_question(questions, documents, correction)
 
     # Which question demonstrates which state is decided by **asking the running system**, in
     # `_probe` below. gate.json's `unsupported_examples` is capped at ten of the forty-seven, so
@@ -122,8 +192,10 @@ def _example_question() -> dict[str, str]:
 
     return {
         "answerable": str(answerable["text"]),
+        "answerable_tr": parallel.get("tr", str(answerable["text"])),
         "answerable_variant": str(answerable.get("variant_id") or ""),
         "answerable_as_of": str(answerable["as_of"]),
+        **bitemporal,
         **described(refused, "refused"),
         **described(failure, "failure"),
         "corrected_valid_from": str(correction["valid_from"]) if correction else "",
@@ -249,12 +321,13 @@ def _shots(example: dict[str, str]) -> list[Shot]:
         Shot(
             "07-turkish",
             url(
-                example["answerable"],
+                example["answerable_tr"],
                 example["answerable_variant"],
                 example["answerable_as_of"],
                 "tr",
             ),
-            "The same question in Turkish, against the same index.",
+            "The same question in Turkish -- the corpus's own parallel rendering, not the English "
+            "text with a language filter -- against the same index.",
         ),
     ]
 
@@ -275,25 +348,31 @@ def _shots(example: dict[str, str]) -> list[Shot]:
             )
         )
 
-    if example["corrected_known_to"]:
-        midpoint = example["corrected_valid_from"]
+    if example.get("bitemporal"):
         shots += [
             Shot(
                 "08-knowledge-now",
-                url("specification", "", midpoint, "en"),
-                "A past date asked with today's knowledge: the correction is returned.",
+                url(
+                    example["bitemporal"],
+                    example["bitemporal_variant"],
+                    example["bitemporal_as_of"],
+                    "en",
+                ),
+                "A past date asked with today's knowledge. The revision in force on that date was "
+                "later corrected, and it is the correction that answers.",
             ),
             Shot(
                 "09-knowledge-then",
                 url(
-                    "specification",
-                    "",
-                    midpoint,
+                    example["bitemporal"],
+                    example["bitemporal_variant"],
+                    example["bitemporal_as_of"],
                     "en",
-                    known_as_of=example["corrected_known_to"],
+                    known_as_of=example["bitemporal_known_as_of"],
                 ),
-                "The same date asked with the knowledge of the time: the original is returned, "
-                "because a later correction does not rewrite what was believed.",
+                "The same question, the same date, pinned to what was known at the time: the "
+                f"answer is {example['bitemporal_then_value']} again, because a later correction "
+                "does not rewrite what the technician had in front of them. Two axes, one query.",
             ),
         ]
     return shots
