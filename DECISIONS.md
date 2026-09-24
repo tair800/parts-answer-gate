@@ -349,3 +349,107 @@ This is a correction to the *measuring instrument*, not to the system under test
 move a measured rate upward. A change that cannot flatter a result is safe to apply to a hold-out
 that has already been scored; the reverse would not be. It is recorded here rather than folded in
 silently.
+
+---
+
+## ADR-003 — The second benchmark iteration, and what the fresh hold-out exposed
+
+**Status:** accepted · **Date:** 2026-09-24 · **Supersedes nothing. ADR-001 and ADR-002 stand
+unedited above.**
+
+ADR-002 ended by recording that the first benchmark was not a valid retrieval test. This is the
+record of the second one: what was rebuilt, what the fresh hold-out found, and which of it was
+fixed against which of it was published.
+
+### What was rebuilt
+
+| | first iteration | second |
+|---|---|---|
+| eligible candidates after filtering (hold-out median) | **9**, with 84.3% at or below `top_k` | **21**, with 0.0% at or below `top_k` |
+| corpus floors | cleared only by counting EN/TR/RU as three | cleared on **distinct content** |
+| supersession edges (distinct) | 23, against a floor of 25 | 56 |
+| `hybrid_without_effectivity` | `as_of=2099-12-31`, which is *more* filtered | the predicate removed |
+| knowledge time | did not exist | a second axis, with corrections |
+| split-leak check | `split_of(F) != split_of(F)` | resolves question → chunk → document → family |
+| `pgvector.json`, `index_lifecycle.json`, `storage_comparison.json` | no producer | written by the ordinary build |
+
+The retrieval task is no longer saturated, and the arms separate. That was the point.
+
+### The ordering, and it is checkable
+
+```
+61b3d3c, eab2955   corpus generated
+3ae15bf            hold-out materialised and frozen — zero scores in that commit
+eecdbf5            the first score over it
+44589bc            re-freeze: the enumeration corrected (below), zero scores in that commit
+<this build>       the score this repository publishes
+```
+
+### Corrections made after a score existed, and why each was safe
+
+Three. Each was found by reading code against its own stated contract, none by looking at a number
+and searching for a way to move it, and each can only move a measured rate **adversely or not at
+all** — which is the property that makes it safe to apply to a hold-out that has already been
+scored. The reverse would not be.
+
+1. **The conflict signal compared units, not quantities.** `_conflicting_evidence` grouped
+   measurements by unit while its docstring said "different values for the same quantity", and the
+   two coincided only while the corpus had exactly one topic per unit. The second corpus has three
+   torque specifications, so one manual page states three different torques for three different
+   things; the gate called that a contradiction and sent **59.93%** of the hold-out to review.
+   Conflicts are now grouped by the passage's own heading as well as its unit.
+2. **The hold-out enumeration dropped a whole failure mode.** `compute` derived the held families
+   from documents alone, so the `different_product_family` negatives — whose families own no
+   documents by definition — were absent from the frozen membership. Fifteen questions, all
+   unanswerable. Re-frozen at `44589bc`.
+3. **`freeze` ran its leak check without the chunk map**, so the reference check resolved nothing
+   and reported clean because it had looked at nothing. The same shape as the defect ADR-002
+   recorded on the corpus side.
+
+### What was *not* fixed, and is published instead
+
+Nothing below was touched after the hold-out was scored. ADR-001's thresholds are unchanged.
+
+**E fails: the gate answered ten questions the corpus cannot support.** Every one of the ten is
+Turkish or Russian; none is English. `gate.term_is_covered` approximates stemming with a
+bidirectional prefix match for terms of four characters or more, because an exact-match rule would
+score coverage near zero on two of the three languages and call that caution. Its own docstring says
+it errs towards covering. The first corpus was too easy to price that; this one prices it. Adjusting
+the gate now would be tuning against a scored hold-out, so the number is published and the
+mechanism named.
+
+**F fails, for two reasons and neither is the retriever.** `ungated_rag` removes only the gate, so
+it runs the identical retriever and cannot be beaten on a retrieval metric — an impossible target
+rather than a hard one, and a defect in a criterion written before the arms existed. More
+substantively, **recall@10 is the wrong measure of what effectivity filtering buys**: removing the
+predicate enlarges the candidate pool, so recall barely moves while MRR collapses. F does not ask
+about MRR.
+
+**H fails on its `ungated > 0` clause**, for the structural reason ADR-002 already set out.
+
+**G passes, and passes vacuously.** This is the finding an independent review surfaced and it
+deserves to be stated plainly rather than banked. A wrong answer is defined as revision-incorrect
+or variant-incorrect. The effectivity predicate runs *before* the gate and constrains family,
+variant and validity in SQL; every hold-out question names a variant; every variant belongs to
+exactly one family. So no answer the gated system can give is capable of being wrong in either
+sense, and G's numerator is empty by construction. **G cannot distinguish this system from a broken
+one**, and a criterion that cannot fail is not evidence. It is reported as PASS because that is what
+it measured, with this paragraph attached.
+
+F, G and H share one root cause: all three were written as if the effectivity filter were beside the
+thing being measured, and it is upstream of everything.
+
+**Condition I counts `REVIEW` as withholding.** That is the reading `gate.withholds_answer` states —
+nothing reaches the technician while a question is in review — but it is the lenient reading of the
+word "abstention", and the floor of 0.90 leaves only ten points of headroom. `gate.json` now
+publishes the strict split beside it so a reader can see how much of the margin is refusal and how
+much is a review queue.
+
+### The coverage curve was measuring the wrong thing
+
+The published curve re-decides every question at every threshold. A refused question carried no
+citations, `metrics.revision_incorrect` returns `True` on an empty cited set by design, and the
+curve's wrong-answer axis therefore rose as the threshold fell because *more refusals entered the
+numerator* — not because any lower-threshold answer would have been incorrect. `AnswerOutcome` had
+documented from the start that these fields must be filled for every question including the refused
+ones. The runner did not fill them; it does now, from the evidence the gate looked at and declined.

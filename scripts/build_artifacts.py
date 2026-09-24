@@ -122,6 +122,7 @@ def _load_corpus() -> dict[str, Any]:
         "holdout_question_ids": list(frozen.questions),
         "chunk_index": {str(c["chunk_id"]): c for c in chunks},
         "document_text": {str(d["document_id"]): str(d.get("text", "")) for d in documents},
+        "document_index": {str(d["document_id"]): d for d in documents},
         "in_force_revisions": in_force,
     }
 

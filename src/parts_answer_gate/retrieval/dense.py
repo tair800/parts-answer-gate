@@ -97,12 +97,17 @@ ANN_PLAN_SETTINGS: Final = ("enable_seqscan", "enable_bitmapscan")
 _ANN_PLAN_SET: Final = "; ".join(f"SET LOCAL {name} = off" for name in ANN_PLAN_SETTINGS)
 _ANN_PLAN_RESET: Final = "; ".join(f"RESET {name}" for name in ANN_PLAN_SETTINGS)
 
+#: `chunk_id` is the second ORDER BY term, and it is the determinism guarantee rather than a
+#: tidy-up. Two chunks at the same cosine distance are ordered by whatever the index returned
+#: first otherwise, and kill condition J requires two runs of the whole pipeline to produce
+#: byte-identical retrieval. `fusion.order_by_score` breaks its ties on `(-score, chunk_id)` and
+#: the module docstring claims that rule holds everywhere; this is the stage where it did not.
 _SQL_TEMPLATE: Final = """
 SELECT chunk.chunk_id AS chunk_id,
        chunk.embedding {operator} CAST(:query_vector AS vector) AS distance
 FROM chunk
 WHERE ({where}) AND chunk.embedding IS NOT NULL
-ORDER BY chunk.embedding {operator} CAST(:query_vector AS vector)
+ORDER BY chunk.embedding {operator} CAST(:query_vector AS vector), chunk.chunk_id
 LIMIT :limit
 """
 

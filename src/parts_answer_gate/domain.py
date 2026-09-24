@@ -284,6 +284,30 @@ class Chunk(_Frozen):
             data = {**data, "known_from": data.get("valid_from")}
         return data
 
+    @model_validator(mode="after")
+    def _intervals_are_consistent(self) -> Self:
+        """The same two invariants `Document` enforces, on the denormalised copy.
+
+        The chunk carries both intervals so the candidate predicate stays a single-table `WHERE`,
+        and a denormalised copy that can hold a state its source refuses is a copy that will
+        eventually hold one. A chunk with `superseded_by` and no `valid_to` is in force for ever
+        and an as-of query keeps returning it; a chunk with `corrected_by` and no `known_to` is
+        believed for ever and a knowledge query returns it beside the correction.
+        """
+        if (self.superseded_by is None) != (self.valid_to is None):
+            raise ValueError(
+                f"{self.chunk_id} has superseded_by={self.superseded_by!r} and "
+                f"valid_to={self.valid_to!r}; a withdrawn passage needs both, a current one needs "
+                "neither"
+            )
+        if (self.corrected_by is None) != (self.known_to is None):
+            raise ValueError(
+                f"{self.chunk_id} has corrected_by={self.corrected_by!r} and "
+                f"known_to={self.known_to!r}; a corrected passage needs both, a current one needs "
+                "neither"
+            )
+        return self
+
     @property
     def part_numbers(self) -> frozenset[str]:
         return part_numbers_in(self.text)

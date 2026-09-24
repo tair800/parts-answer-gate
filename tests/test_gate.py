@@ -132,6 +132,22 @@ def test_the_answering_outcome_is_constructed_in_exactly_one_place() -> None:
         "the single construction site is not inside decide(), so some other function can answer"
     )
 
+    # The attribute form is not the only way to name the outcome. `GateOutcome` is a `StrEnum` and
+    # `GateDecision` is a pydantic model, so `GateDecision(outcome="answer", ...)` builds exactly
+    # the same answering decision and is invisible to the node count above — an AST guard that
+    # looks for one spelling guards one spelling. Every string literal equal to the enum's value is
+    # therefore counted too.
+    literals = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and node.value == GateOutcome.ANSWER.value
+    ]
+    assert not literals, (
+        f"{GATE_SOURCE.name} names the answering outcome as a bare string at lines "
+        f"{[node.lineno for node in literals]}; a StrEnum makes that the same construction, and it "
+        "would not be counted by the attribute check above"
+    )
+
 
 def test_no_gate_signal_is_derived_from_a_model() -> None:
     """The gate module imports nothing that could generate text.

@@ -47,7 +47,18 @@ def reciprocal_rank_fusion(
     return fused
 
 
-def order_by_score(scores: Mapping[str, float]) -> list[str]:
-    """Descending by score, ascending by chunk id. The tie-break is the determinism guarantee."""
-    ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+def order_by_score(scores: Mapping[str, float], *, drop_zero: bool = True) -> list[str]:
+    """Descending by score, ascending by chunk id, with the unscored dropped.
+
+    The tie-break is the determinism guarantee: kill condition J requires two runs to produce
+    byte-identical retrieval, and a set iterated in whatever order it was built is how that is lost.
+
+    `drop_zero` is the other half, and it matters more than it looks. BM25 scores a chunk sharing no
+    term with the query at exactly 0.0, and with the zeros kept the tail of this ranking is an
+    alphabetical list of chunks the stage found nothing in — which reciprocal rank fusion then
+    rewards with real reciprocal-rank weight purely for sorting early. A stage that says "no
+    opinion" should contribute no opinion, not an opinion ordered by identifier.
+    """
+    items = [(k, v) for k, v in scores.items() if v > 0.0] if drop_zero else list(scores.items())
+    ordered = sorted(items, key=lambda item: (-item[1], item[0]))
     return [chunk_id for chunk_id, _ in ordered]

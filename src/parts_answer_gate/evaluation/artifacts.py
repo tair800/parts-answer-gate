@@ -20,9 +20,9 @@ import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from sqlalchemy.orm import Session
 
@@ -36,8 +36,13 @@ from parts_answer_gate.retrieval.embeddings import Embedder
 from parts_answer_gate.retrieval.pipeline import Retriever
 from parts_answer_gate.store.comparison import build_storage_comparison_artifact
 from parts_answer_gate.store.diagnostics import build_pgvector_artifact
-from parts_answer_gate.store.effectivity import FILTER_STAGE
+from parts_answer_gate.store.effectivity import (
+    FILTER_STAGE,
+    CandidateFilter,
+    candidate_filter,
+)
 from parts_answer_gate.store.lifecycle import measure_index_lifecycle
+from parts_answer_gate.store.queries import fetch_candidates
 
 __all__ = ["BuildReport", "build_all"]
 
@@ -109,6 +114,100 @@ class BuildReport:
     abstention_on_unanswerable: float
 
 
+#: How many questions the A/B replay covers, per as-of date.
+_REPLAY_SAMPLE: Final = 120
+
+
+def _predicate_is_real(filters: CandidateFilter) -> bool:
+    """Whether the candidate predicate actually constrains what the ranking statements see.
+
+    Checked against the fragment rather than asserted, and checked on the *terms* rather than on
+    the string: a fragment is only doing this job if it names both temporal bounds, the variant and
+    the language, and carries the bound values for them.
+    """
+    sql = filters.sql
+    required = ("valid_from", "valid_to", "variant_id", "language")
+    knowledge = "known_to" in sql or "known_from" in sql
+    return (
+        all(term in sql for term in required)
+        and knowledge
+        and filters.effectivity_applied
+        and filters.as_of_constrained
+        and filters.knowledge_constrained
+    )
+
+
+def _knowledge_replay(
+    session: Session,
+    questions: Sequence[Mapping[str, Any]],
+    documents: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Ask one corrected specification at three knowledge dates and record what came back.
+
+    The whole of the second bitemporal axis, as a number rather than as a paragraph: the same
+    machine and the same as-of date, asked with the knowledge of the time and with today's, must
+    return different documents — and the historical answer must be the pre-correction one even
+    though the correction is sitting in the same table.
+    """
+    corrected = sorted(
+        (d for d in documents.values() if d.get("corrected_by") and d.get("known_to")),
+        key=lambda d: str(d["document_id"]),
+    )
+    if not corrected:
+        return {"corrections_in_corpus": 0, "tested": False}
+
+    original = corrected[0]
+    correction_id = str(original["corrected_by"])
+    variant = next(
+        (
+            str(q["variant_id"])
+            for q in questions
+            if str(q.get("family_id")) == str(original["family_id"]) and q.get("variant_id")
+        ),
+        None,
+    )
+    valid_from = date.fromisoformat(str(original["valid_from"]))
+    valid_to = date.fromisoformat(str(original["valid_to"]))
+    known_to = date.fromisoformat(str(original["known_to"]))
+    as_of = valid_from + (valid_to - valid_from) // 2
+
+    def seen(known_as_of: date | None) -> set[str]:
+        query = Query(
+            text="specification",
+            language=Language.EN,
+            as_of=as_of,
+            known_as_of=known_as_of,
+            variant_id=variant,
+            top_k=50,
+        )
+        return {chunk.document_id for chunk in fetch_candidates(session, candidate_filter(query))}
+
+    before = seen(known_to - timedelta(days=1))
+    now = seen(None)
+    after = seen(known_to + timedelta(days=1))
+
+    return {
+        "corrections_in_corpus": len(corrected),
+        "tested": True,
+        "case": {
+            "family_id": str(original["family_id"]),
+            "variant_id": variant,
+            "as_of": as_of.isoformat(),
+            "correction_known_from": known_to.isoformat(),
+            "original_document": str(original["document_id"]),
+            "correction_document": correction_id,
+        },
+        "original_returned_at_historical_knowledge": str(original["document_id"]) in before,
+        "correction_hidden_at_historical_knowledge": correction_id not in before,
+        "correction_returned_under_current_knowledge": correction_id in now,
+        "original_hidden_under_current_knowledge": str(original["document_id"]) not in now,
+        "correction_returned_after_it_was_issued": correction_id in after,
+        "a_later_correction_did_not_rewrite_history": (
+            str(original["document_id"]) in before and correction_id not in before
+        ),
+    }
+
+
 # ------------------------------------------------------------------ A and B: the headline claim
 
 
@@ -117,6 +216,7 @@ def _effectivity(
     session: Session,
     questions: Sequence[Mapping[str, Any]],
     chunk_index: Mapping[str, Mapping[str, Any]],
+    documents: Mapping[str, Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Replay a sample of questions at several as-of dates and inspect what came back.
 
@@ -127,8 +227,25 @@ def _effectivity(
     superseded: list[dict[str, Any]] = []
     wrong_variant: list[dict[str, Any]] = []
     queries = 0
+    probe_filter: CandidateFilter | None = None
 
-    sample = [q for q in questions if q.get("variant_id")][:120]
+    # Round-robin across families rather than the first 120 rows. The corpus is written
+    # family by family, so an unshuffled prefix covered two of the hold-out's six families and
+    # graded the project's headline claim on a third of the machines it was measured over.
+    # Deterministic — sorted, then dealt — because kill condition J compares two runs byte for byte
+    # and a shuffled sample would differ between them for a reason unrelated to retrieval.
+    by_family: dict[str, list[Mapping[str, Any]]] = {}
+    for question in sorted(questions, key=lambda q: str(q["question_id"])):
+        if question.get("variant_id"):
+            by_family.setdefault(str(question["family_id"]), []).append(question)
+
+    sample: list[Mapping[str, Any]] = []
+    families_in_sample: set[str] = set()
+    for index in range(max((len(v) for v in by_family.values()), default=0)):
+        for family in sorted(by_family):
+            if index < len(by_family[family]) and len(sample) < _REPLAY_SAMPLE:
+                sample.append(by_family[family][index])
+                families_in_sample.add(family)
 
     for as_of in REPLAY_DATES:
         for question in sample:
@@ -139,6 +256,8 @@ def _effectivity(
                 variant_id=question.get("variant_id") or None,
                 serial=question.get("serial"),
             )
+            if probe_filter is None:
+                probe_filter = candidate_filter(query)
             result = retriever.retrieve(session, query)
             queries += 1
 
@@ -179,7 +298,28 @@ def _effectivity(
         "wrong_variant_chunks_returned": len(wrong_variant),
         "wrong_variant_examples": wrong_variant[:10],
         "filter_applied": FILTER_STAGE,
-        "candidate_set_constrained_in_sql": True,
+        # Read off the predicate the retriever actually built for one of the replayed queries,
+        # rather than written as `True`. The kill test asserts this field, and a literal makes that
+        # assertion a statement about a literal — it would stay green if the predicate were deleted
+        # tomorrow. What is checked here is that the SQL fragment the ranking statements interpolate
+        # really carries both temporal bounds, the variant term and the language term.
+        "candidate_set_constrained_in_sql": (
+            probe_filter is not None and _predicate_is_real(probe_filter)
+        ),
+        "candidate_predicate_sql": probe_filter.sql if probe_filter else "",
+        "candidate_predicate_terms": {
+            "as_of": probe_filter.as_of_constrained if probe_filter else False,
+            "knowledge": probe_filter.knowledge_constrained if probe_filter else False,
+            "variant": probe_filter.variant_constrained if probe_filter else False,
+            "serial": probe_filter.serial_constrained if probe_filter else False,
+            "language": probe_filter.language_constrained if probe_filter else False,
+        },
+        # Knowledge time, exercised as evidence rather than only in the test suite. The second axis
+        # is a claim this project makes about itself, and a claim whose only witness is a test that
+        # a reader has to run is weaker than a number in the artifact beside the first axis.
+        "knowledge_time": _knowledge_replay(session, questions, documents),
+        "families_in_replay_sample": len(families_in_sample),
+        "replay_sample_size": len(sample),
         "method": (
             "each question is replayed at every as-of date and every returned chunk is checked "
             "against the corpus's own validity interval and variant, never against anything the "
@@ -618,7 +758,11 @@ def build_all(
     provenance = _provenance()
     payloads: dict[str, Mapping[str, Any]] = {
         "effectivity.json": _effectivity(
-            retriever, session, holdout_questions, corpus["chunk_index"]
+            retriever,
+            session,
+            holdout_questions,
+            corpus["chunk_index"],
+            corpus["document_index"],
         ),
         "groundedness.json": _groundedness(everything, corpus["document_text"]),
         "gate.json": _gate(everything, questions),

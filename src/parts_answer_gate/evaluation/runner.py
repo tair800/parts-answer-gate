@@ -8,7 +8,7 @@ fetch, the corpus and the scoring, and each baseline removes precisely one compo
 | arm | what is removed |
 |---|---|
 | `bm25_only` | the dense signal |
-| `dense_only` | the lexical signal |
+| `dense_only` | both lexical signals, BM25 and the exact-identifier lookup |
 | `hybrid_without_effectivity` | the temporal and variant predicate — the sole-home skill |
 | `ungated_rag` | the gate; every question is answered |
 
@@ -292,7 +292,12 @@ def _retrieve_for_arm(
     if arm == "bm25_only":
         return retriever.retrieve(session, query, weights={"dense": 0.0})
     if arm == "dense_only":
-        return retriever.retrieve(session, query, weights={"lexical": 0.0})
+        # The exact-identifier stage is zeroed here as well, and that is the point of the arm. It
+        # is a *lexical* signal — a deterministic match on part numbers found in the query text —
+        # carried at double weight, so leaving it in would have made "dense only" a hybrid of the
+        # dense stage and the strongest lexical stage in the pipeline, and the two single-signal
+        # baselines would have shared a component. ADR-003.
+        return retriever.retrieve(session, query, weights={"lexical": 0.0, "exact_identifier": 0.0})
     if arm == "hybrid_without_effectivity":
         return retriever.retrieve(session, query, apply_effectivity=False)
     return retriever.retrieve(session, query)
