@@ -73,7 +73,7 @@ __all__ = [
 #: a band of roughly 0.014 to 0.033, so a curve drawn over it would be flat for most of its length
 #: and would have to be redrawn the day the fusion changes.
 #:
-#: 0.60 as the shipped default: two of every three content terms in a technician's question must be
+#: 0.60 as the shipped default: three of every five content terms in a technician's question must be
 #: present in the passages being cited. Below that the usual failure is a chunk about the right
 #: product and the wrong attribute, which scores well and supports nothing.
 DEFAULT_MIN_TERM_COVERAGE: Final[float] = 0.60

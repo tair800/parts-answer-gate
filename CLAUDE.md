@@ -477,12 +477,17 @@ this list may be described as built.
 
 Open items in the repository itself, to be closed rather than papered over:
 
-- `make artifacts-check` and `make screenshots` call `scripts/check_artifacts_current.py` and
-  `scripts/screenshots.py`, neither of which exists.
-- `store/comparison.py :: build_storage_comparison_artifact` has no caller, so
-  `storage_comparison.json` is not produced by `make evidence` although the kill test grades it.
-- `docker-entrypoint.sh` does not run `alembic upgrade head`, although its header says it migrates
-  and the Dockerfile copies the migrations in for that purpose.
-- CI passes `PAG_SKIP_SEED` to the bare-container step; nothing in the codebase reads it.
-- There is no `README.md` and no `PROJECT_STATUS.md`, both of which the workspace contract requires
-  and which ADR-001 repeatedly says will publish specific figures. `docs/` is empty.
+- **The gate over-covers in Turkish and Russian.** `term_is_covered` approximates stemming with a
+  bidirectional prefix match, and that is the mechanism behind kill condition E's failure. It is
+  **not** to be adjusted against the current hold-out, which has been scored; a fix is a new
+  experiment with a new hold-out, under a recorded decision.
+- **Kill conditions E, F, G and H were all written as if the effectivity filter were beside the
+  thing being measured.** It is upstream of everything. Any replacement criterion must be written
+  with that in mind, and must be predeclared before it is measured.
+- **The abstractive arm has never run.** The port, `prompt_payload` and the post-validation wrapper
+  are built and tested against hand-written inputs, but no model output has ever passed through
+  them. ADR-001 lists a recorded-cassette evaluation as required and it is not built.
+- **No end-to-end query latency is published.** `storage_comparison.json` carries per-backend p50
+  and p95 for the vector search; nothing measures what `/api/ask` costs a caller.
+- **Indexing at container start does not survive a second replica.** Recorded in §6 as an exemption
+  earned by a single-instance plan, not as a design.
