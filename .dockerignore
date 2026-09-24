@@ -1,0 +1,12 @@
+.venv/
+.git/
+.github/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+data/generated/
+docs/screenshots/
+node_modules/
+.claude/

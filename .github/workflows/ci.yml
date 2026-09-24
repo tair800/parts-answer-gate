@@ -1,0 +1,241 @@
+# Two lanes that matter and three that support them.
+#
+# `fast` is what a pull request waits on: lint, types, and every test that needs no database and no
+# embedding model. It finishes in about a minute, which is the difference between a check people
+# read and one they learn to ignore.
+#
+# `evidence` is the one that decides whether the project's claims are still true. It starts a real
+# PostgreSQL **with the pgvector extension**, regenerates the corpus, rebuilds every artifact and
+# grades them with the kill test that was committed before any implementation existed. Kill
+# condition K is specifically a claim that the extension participates, so running this against a
+# plain postgres image would make the whole lane a lie.
+#
+# None of these is `continue-on-error`. A lane allowed to fail silently is a lane that is already
+# failing.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so the falsifiability lane runs even in a quiet week.
+    - cron: "23 6 * * 2"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # A value only CI uses. Not a secret, not shared with anything, and not a credential for anything
+  # that exists outside this job's network namespace.
+  PAG_DATABASE_URL: postgresql+psycopg://parts:ci_only_not_a_secret@localhost:5432/parts_answer_gate
+  PAG_EMBEDDING_CACHE: .fastembed_cache
+
+jobs:
+  fast:
+    name: lint, types, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests scripts
+
+      - name: Format check
+        run: uv run ruff format --check src tests scripts
+
+      - name: Types
+        run: uv run mypy src
+
+      - name: Tests that need no infrastructure
+        # The store and retrieval tests skip without a database; the gate, the citations, the
+        # metrics and the domain invariants are real coverage and run here.
+        run: uv run pytest tests -q --ignore=tests/test_kill_criteria.py
+
+  evidence:
+    name: pgvector, corpus, evaluation, kill criteria
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        # pgvector/pgvector, not postgres. Kill condition K asserts the extension participates in
+        # retrieval, and a plain image would make that assertion unrunnable — which is worse than
+        # failing it, because the lane would go green.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: parts
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: parts_answer_gate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U parts -d parts_answer_gate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Cache the embedding model
+        # ~220MB of ONNX. Downloading it on every run would dominate the lane and would make CI
+        # depend on a model host being up, which is not a dependency this project needs.
+        uses: actions/cache@v4
+        with:
+          path: .fastembed_cache
+          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2-v1
+
+      - name: Migrate
+        run: uv run alembic upgrade head
+
+      - name: Generate the corpus
+        # Rebuilt from a committed seed rather than kept in git. A corpus in history is a corpus
+        # nobody regenerates, and then the seed stops being the source of truth.
+        run: uv run python scripts/generate_corpus.py
+
+      - name: Prove the corpus is reproducible
+        run: uv run python scripts/generate_corpus.py --verify-determinism
+
+      - name: Build the evidence
+        run: uv run python scripts/build_artifacts.py
+
+      - name: Grade it against the predeclared thresholds
+        # `test_kill_criteria.py` has not been edited since it was committed with zero source files,
+        # and `test_predeclaration.py` fails the build if anything in it learns to skip.
+        run: uv run pytest tests/test_kill_criteria.py tests/test_predeclaration.py -q
+
+      - name: Full suite against a real database
+        run: uv run pytest tests -q
+
+      - name: Publish the artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence
+          path: artifacts/
+          retention-days: 30
+
+  falsifiability:
+    name: planted breaches
+    # Only where it is worth the minutes; never advisory.
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: parts
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: parts_answer_gate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U parts -d parts_answer_gate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: .fastembed_cache
+          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2-v1
+
+      - name: Migrate and build the evidence
+        run: |
+          uv run alembic upgrade head
+          uv run python scripts/generate_corpus.py
+          uv run python scripts/build_artifacts.py
+
+      - name: Plant every breach and check each is caught
+        run: uv run python scripts/plant_breaches.py
+
+      - name: No planted breach survived
+        # Scoped to the paths a breach can be planted in. The step above rebuilds artifacts, whose
+        # provenance records the commit and the runner, so an unscoped diff would fail on build
+        # output and say nothing about whether a breach survived — and a check that goes red for the
+        # wrong reason gets muted, taking the right reason with it.
+        run: git diff --exit-code -- src tests scripts alembic
+
+  docker:
+    name: image builds, migrates and serves
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: parts
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: parts_answer_gate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U parts -d parts_answer_gate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build -t parts-answer-gate:ci .
+
+      - name: It serves without any infrastructure at all
+        # Proves the image does not need a database to start. `PAG_SKIP_SEED` is what makes this
+        # fast: without it the entrypoint would spend its whole connect timeout waiting for a
+        # database this step deliberately does not provide.
+        run: |
+          docker run -d --name pag-bare -p 8001:8000 \
+            -e PAG_ENVIRONMENT=ci -e PAG_SKIP_SEED=true parts-answer-gate:ci
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8001/healthz || true)
+            if [ "$code" = "503" ]; then echo "degraded, as expected with no database"; exit 0; fi
+            if [ "$code" = "200" ]; then echo "unexpectedly healthy with no database"; exit 1; fi
+            sleep 2
+          done
+          echo "the container never answered"; docker logs pag-bare; exit 1
+
+      - name: It migrates, indexes and serves against a real pgvector database
+        # The path a deployment actually takes, from an empty database, with the `postgres://`
+        # scheme a hosting provider emits rather than the one the code prefers.
+        run: |
+          docker run -d --name pag -p 8000:8000 --network host \
+            -e PORT=8000 -e PAG_ENVIRONMENT=ci \
+            -e PAG_DATABASE_URL='postgres://parts:ci_only_not_a_secret@localhost:5432/parts_answer_gate' \
+            parts-answer-gate:ci
+          for i in $(seq 1 90); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthz || true)
+            if [ "$code" = "200" ]; then echo healthy; break; fi
+            sleep 2
+          done
+          docker logs pag
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthz)" = "200"
+
+      - name: Every screen renders and a question gets an answer or an abstention
+        run: |
+          for path in / /evidence /failures /provenance; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8000$path")
+            echo "$path -> $code"
+            test "$code" = "200"
+          done

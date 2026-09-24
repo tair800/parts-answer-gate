@@ -1,0 +1,49 @@
+# Local PostgreSQL for parts-answer-gate.
+#
+# `pgvector/pgvector:pg16` rather than `postgres:16` plus a build step: ADR-001 kill condition K says
+# vector retrieval must provably execute inside the database, so the extension has to be present in
+# the image the developer and CI both run. A compose file that needs a manual `CREATE EXTENSION`
+# against a stock image is a file that works until somebody starts from scratch.
+#
+# Port 15440 is this project's alone. 15432/15433/15434/15437 already belong to other repositories in
+# the same workspace, and a developer running two of them at once must not have to stop one first.
+# Bound to 127.0.0.1 so the container is not reachable from the network.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: parts-answer-gate-postgres
+    environment:
+      POSTGRES_USER: ${PAG_POSTGRES_USER:-pag}
+      # Local development credential only. Nothing in this repository reads a production secret from
+      # a compose file; the deployed configuration supplies PAG_DATABASE_URL from the environment.
+      POSTGRES_PASSWORD: ${PAG_POSTGRES_PASSWORD:-pag_local_dev}
+      POSTGRES_DB: ${PAG_POSTGRES_DB:-parts_answer_gate}
+    ports:
+      - "127.0.0.1:15440:5432"
+    volumes:
+      - pag-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` alone reports ready while the initdb bootstrap is still restarting the server,
+      # which makes the first migration of a fresh volume fail intermittently. Naming the database
+      # and the user makes the check fail until the real database exists.
+      test: ["CMD-SHELL", "pg_isready -U ${PAG_POSTGRES_USER:-pag} -d ${PAG_POSTGRES_DB:-parts_answer_gate}"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    # HNSW builds and searches hold the graph in memory. The defaults (128MB shared_buffers,
+    # 4MB work_mem) make an index build spill to disk and make the planner price an index scan
+    # pessimistically, which would turn kill condition K into a question about container tuning.
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "work_mem=32MB"
+    restart: unless-stopped
+
+volumes:
+  pag-pgdata:
