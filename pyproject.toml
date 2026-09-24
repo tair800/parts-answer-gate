@@ -1,0 +1,62 @@
+[project]
+name = "parts-answer-gate"
+version = "0.1.0"
+description = "Answer a technician's parts question with a variant-correct, revision-correct citation, or abstain."
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.9",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "jinja2>=3.1",
+  "sqlalchemy>=2.0",
+  "alembic>=1.14",
+  "psycopg[binary]>=3.2",
+  "pgvector>=0.3",
+  "fastembed>=0.4",
+  "rank-bm25>=0.2",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.8",
+  "mypy>=1.13",
+  "httpx>=0.27",
+  "pyyaml>=6.0",
+  "playwright>=1.49",
+  "qdrant-client>=1.12",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/parts_answer_gate"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PL", "RUF", "S", "SIM", "TID", "ARG", "PTH"]
+ignore = ["S101", "PLR0913", "PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ARG", "PLR0915"]
+# The kill test names its functions after the ADR-001 condition letters — `test_A_...`, `test_B_...`
+# — so a reader can map a failure to the clause it violates without opening another file. Renaming
+# them to satisfy a casing rule would cost the only thing that makes them navigable.
+"tests/test_kill_criteria.py" = ["ARG", "PLR0915", "N802"]
+"scripts/*" = ["T201"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["parts_answer_gate"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
