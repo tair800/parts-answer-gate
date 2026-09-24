@@ -114,6 +114,11 @@ class DocumentRow(Base):
     revision: Mapped[str] = mapped_column(String(32), nullable=False)
     valid_from: Mapped[date] = mapped_column(Date, nullable=False)
     valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    #: Knowledge time — when this was learned and when it stopped being believed. The second
+    #: bitemporal axis; see `domain.Document`.
+    known_from: Mapped[date] = mapped_column(Date, nullable=False)
+    known_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    corrected_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # Deliberately NOT a foreign key onto document.document_id. A supersession edge points forward
     # in time and the successor is frequently inserted after the revision it replaces; a
     # self-referential FK would force the loader to topologically sort a graph whose only consumer
@@ -126,6 +131,7 @@ class DocumentRow(Base):
     __table_args__ = (
         Index("ix_document_family", "family_id"),
         Index("ix_document_in_force", "valid_from", "valid_to"),
+        Index("ix_document_known", "known_from", "known_to"),
     )
 
 
@@ -159,6 +165,13 @@ class ChunkRow(Base):
     valid_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     superseded_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # --- knowledge time, denormalised for the same reason -----------------------------------------
+    #: Both bitemporal axes live on the chunk so the candidate-set predicate stays a single-table
+    #: `WHERE`. A join to reach knowledge time is what would tempt somebody to filter after ranking.
+    known_from: Mapped[date] = mapped_column(Date, nullable=False)
+    known_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    corrected_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     # --- derived ---------------------------------------------------------------------------------
     #: Part numbers found in `text`, for the deterministic lookup that runs before any embedding.
     identifiers: Mapped[list[str]] = mapped_column(
@@ -181,6 +194,9 @@ class ChunkRow(Base):
         Index("ix_chunk_effectivity", "variant_id", "valid_from", "valid_to"),
         # The as-of half on its own, for questions that name no variant.
         Index("ix_chunk_in_force", "valid_from", "valid_to"),
+        # Knowledge time. Current-knowledge queries are the common case and read `known_to IS
+        # NULL`, so this leads with the column that answers them.
+        Index("ix_chunk_known", "known_to", "known_from"),
         # GIN, because the deterministic lookup asks "does this row's identifier array overlap the
         # query's", and that is an array containment test a btree cannot answer.
         Index("ix_chunk_identifiers", "identifiers", postgresql_using="gin"),
@@ -211,6 +227,9 @@ def document_row_values(document: Document) -> dict[str, Any]:
         "revision": document.revision,
         "valid_from": document.valid_from,
         "valid_to": document.valid_to,
+        "known_from": document.known_from,
+        "known_to": document.known_to,
+        "corrected_by": document.corrected_by,
         "superseded_by": document.superseded_by,
         "source_uri": document.source_uri,
         "checksum": document.checksum,
@@ -234,6 +253,9 @@ def chunk_row_values(chunk: Chunk) -> dict[str, Any]:
         "serial_last": chunk.effectivity.serials.last,
         "valid_from": chunk.valid_from,
         "valid_to": chunk.valid_to,
+        "known_from": chunk.known_from,
+        "known_to": chunk.known_to,
+        "corrected_by": chunk.corrected_by,
         "superseded_by": chunk.superseded_by,
         "identifiers": sorted(part_numbers_in(chunk.text)),
     }
@@ -248,6 +270,9 @@ def to_domain_document(row: DocumentRow) -> Document:
         revision=row.revision,
         valid_from=row.valid_from,
         valid_to=row.valid_to,
+        known_from=row.known_from,
+        known_to=row.known_to,
+        corrected_by=row.corrected_by,
         superseded_by=row.superseded_by,
         source_uri=row.source_uri,
         checksum=row.checksum,
@@ -272,6 +297,9 @@ CHUNK_READ_COLUMNS: Final = (
     "serial_last",
     "valid_from",
     "valid_to",
+    "known_from",
+    "known_to",
+    "corrected_by",
     "superseded_by",
 )
 
@@ -302,6 +330,9 @@ def chunk_from_mapping(row: Mapping[Any, Any]) -> Chunk:
         ),
         valid_from=row["valid_from"],
         valid_to=row["valid_to"],
+        known_from=row["known_from"],
+        known_to=row["known_to"],
+        corrected_by=row["corrected_by"],
         superseded_by=row["superseded_by"],
     )
 

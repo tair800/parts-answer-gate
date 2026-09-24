@@ -9,7 +9,7 @@ fetch, the corpus and the scoring, and each baseline removes precisely one compo
 |---|---|
 | `bm25_only` | the dense signal |
 | `dense_only` | the lexical signal |
-| `hybrid_without_effectivity` | the temporal and variant constraints — the sole-home skill |
+| `hybrid_without_effectivity` | the temporal and variant predicate — the sole-home skill |
 | `ungated_rag` | the gate; every question is answered |
 
 `hybrid_without_effectivity` is the one that matters. It isolates what the effectivity filter buys,
@@ -242,20 +242,22 @@ def _retrieve_for_arm(
 ) -> RetrievalResult:
     """The one component each baseline removes, and nothing else.
 
-    `hybrid_without_effectivity` widens the query rather than editing the retriever: dropping the
-    variant and running as-of at a date after every revision is exactly "no effectivity constraint"
-    expressed through the same code path, so the comparison isolates the filter instead of comparing
-    two different retrievers.
+    `hybrid_without_effectivity` **removes the predicate**, through the same retriever, and that is
+    the only honest way to express it.
+
+    An earlier version simulated removal by copying the query with `as_of=2099-12-31` and leaving
+    the predicate in place. That is strictly *more* filtered, not less: the half-open temporal test
+    `valid_from <= as_of < valid_to` admits only rows with no end date once the date is past every
+    withdrawal, so the arm deleted the gold passage for every question whose answer had since been
+    superseded, and the 0.1714 recall it reported measured a query issued at the wrong date rather
+    than a retriever working without effectivity. ADR-002 records it.
     """
     if arm == "bm25_only":
         return retriever.retrieve(session, query, weights={"dense": 0.0})
     if arm == "dense_only":
         return retriever.retrieve(session, query, weights={"lexical": 0.0})
     if arm == "hybrid_without_effectivity":
-        unfiltered = query.model_copy(
-            update={"variant_id": None, "serial": None, "as_of": date(2099, 12, 31)}
-        )
-        return retriever.retrieve(session, unfiltered)
+        return retriever.retrieve(session, query, apply_effectivity=False)
     return retriever.retrieve(session, query)
 
 

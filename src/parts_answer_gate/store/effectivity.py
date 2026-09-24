@@ -25,7 +25,9 @@ from parts_answer_gate.domain import Chunk, Language, Query
 
 __all__ = [
     "AS_OF_PREDICATE_SQL",
+    "CURRENT_KNOWLEDGE_PREDICATE_SQL",
     "FILTER_STAGE",
+    "KNOWN_AS_OF_PREDICATE_SQL",
     "CandidateFilter",
     "applies_in_python",
     "candidate_filter",
@@ -43,6 +45,18 @@ AS_OF_PREDICATE_SQL: Final = (
     "{a}.valid_from <= :as_of AND ({a}.valid_to IS NULL OR :as_of < {a}.valid_to)"
 )
 
+#: The **knowledge-time** half, and the second axis that makes this bitemporal rather than
+#: versioned. Same half-open shape as validity, for the same reason.
+#:
+#: Two forms, because "what do we currently believe" and "what did we believe on 4 March" are
+#: different questions and only one of them is expressible as a date. Current knowledge is
+#: `known_to IS NULL`; it is *not* the same as passing today's date, which would also admit a
+#: correction that has already been superseded by a later one if the dates happened to line up.
+KNOWN_AS_OF_PREDICATE_SQL: Final = (
+    "{a}.known_from <= :known_as_of AND ({a}.known_to IS NULL OR :known_as_of < {a}.known_to)"
+)
+CURRENT_KNOWLEDGE_PREDICATE_SQL: Final = "{a}.known_to IS NULL"
+
 
 @dataclass(frozen=True)
 class CandidateFilter:
@@ -56,9 +70,17 @@ class CandidateFilter:
     sql: str
     params: dict[str, Any] = field(default_factory=dict)
     as_of_constrained: bool = True
+    knowledge_constrained: bool = True
+    #: True only when the query pinned a historical knowledge date, as opposed to taking current
+    #: knowledge. `effectivity.json` reports it so a replay that never varied the second axis
+    #: cannot be described as a bitemporal test.
+    historical_knowledge: bool = False
     variant_constrained: bool = False
     serial_constrained: bool = False
     language_constrained: bool = False
+    #: False only for the `hybrid_without_effectivity` baseline. It is recorded rather than
+    #: implied so the artifact can state which arm produced a candidate set.
+    effectivity_applied: bool = True
 
     def where(self) -> str:
         return self.sql
@@ -69,6 +91,7 @@ def candidate_filter(
     *,
     alias: str = "chunk",
     languages: Iterable[Language] | None = None,
+    apply_effectivity: bool = True,
 ) -> CandidateFilter:
     """Build the predicate that constrains the candidate set before any ranking.
 
@@ -81,9 +104,30 @@ def candidate_filter(
     because the multilingual evaluation needs to run one arm with the language constraint widened —
     that is the ablated cross-lingual fix — and an ablation that cannot be expressed through the
     production API is an ablation of something else.
+
+    `apply_effectivity=False` builds the `hybrid_without_effectivity` baseline by **removing the
+    predicate**, which is the only honest way to measure what it buys. An earlier version of that
+    baseline simulated removal by moving `as_of` to 2099-12-31 and leaving the predicate in place.
+    That is strictly *more* filtered, not less: at a date past every withdrawal only `valid_to IS
+    NULL` rows survive, so the arm silently deleted the gold passage for every question whose
+    answer had since been superseded, and the recall it reported measured a query issued at the
+    wrong date. Language stays constrained — ADR-001 scopes this baseline to the temporal and
+    variant constraints, and widening language too would make it a different ablation.
     """
-    clauses = [AS_OF_PREDICATE_SQL.format(a=alias)]
-    params: dict[str, Any] = {"as_of": query.as_of}
+    clauses: list[str] = []
+    params: dict[str, Any] = {}
+
+    if apply_effectivity:
+        clauses.append(AS_OF_PREDICATE_SQL.format(a=alias))
+        params["as_of"] = query.as_of
+
+        # The knowledge axis. Current knowledge is a predicate with no bound value, which is why
+        # this is a branch rather than a parameter substitution.
+        if query.known_as_of is None:
+            clauses.append(CURRENT_KNOWLEDGE_PREDICATE_SQL.format(a=alias))
+        else:
+            clauses.append(KNOWN_AS_OF_PREDICATE_SQL.format(a=alias))
+            params["known_as_of"] = query.known_as_of
 
     selected = list(languages) if languages is not None else [query.language]
     language_constrained = bool(selected)
@@ -91,7 +135,7 @@ def candidate_filter(
         clauses.append(f"{alias}.language = ANY(:languages)")
         params["languages"] = [language.value for language in selected]
 
-    variant_constrained = query.variant_id is not None
+    variant_constrained = apply_effectivity and query.variant_id is not None
     serial_constrained = False
     if variant_constrained:
         clauses.append(f"{alias}.variant_id = :variant_id")
@@ -113,13 +157,18 @@ def candidate_filter(
             )
             params["serial"] = query.serial
 
+    # A filter with no clauses at all would produce `WHERE ()`. `TRUE` keeps the callers' string
+    # interpolation uniform rather than making three query builders each handle an empty fragment.
     return CandidateFilter(
-        sql=" AND ".join(f"({clause})" for clause in clauses),
+        sql=" AND ".join(f"({clause})" for clause in clauses) if clauses else "TRUE",
         params=params,
-        as_of_constrained=True,
+        as_of_constrained=apply_effectivity,
+        knowledge_constrained=apply_effectivity,
+        historical_knowledge=apply_effectivity and query.known_as_of is not None,
         variant_constrained=variant_constrained,
         serial_constrained=serial_constrained,
         language_constrained=language_constrained,
+        effectivity_applied=apply_effectivity,
     )
 
 
@@ -128,6 +177,7 @@ def applies_in_python(
     query: Query,
     *,
     languages: Iterable[Language] | None = None,
+    apply_effectivity: bool = True,
 ) -> bool:
     """The same rule, evaluated against a domain object.
 
@@ -136,10 +186,12 @@ def applies_in_python(
     the chunks the domain model says apply. A guarantee with one implementation is a guarantee
     nobody has checked.
     """
-    if not chunk.in_force_on(query.as_of):
-        return False
     selected = list(languages) if languages is not None else [query.language]
     if selected and chunk.language not in selected:
+        return False
+    if not apply_effectivity:
+        return True
+    if not chunk.visible_at(query.as_of, query.known_as_of):
         return False
     if query.variant_id is None:
         return True

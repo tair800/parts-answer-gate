@@ -126,6 +126,7 @@ class Retriever:
         *,
         languages: Iterable[Language] | None = None,
         weights: Mapping[str, float] | None = None,
+        apply_effectivity: bool = True,
     ) -> RetrievalResult:
         """Retrieve, optionally with the stage weights overridden.
 
@@ -138,11 +139,20 @@ class Retriever:
         It is a parameter rather than a constructor argument so the same `Retriever`, holding the
         same loaded encoder, serves every arm. Five encoders would be five copies of 220MB and a
         chance for two arms to embed differently.
+
+        `apply_effectivity=False` is `hybrid_without_effectivity`, and it goes through this same
+        path for the same reason: the candidate predicate is dropped, and nothing else about the
+        retriever changes. It must never be simulated by moving `as_of` to a far date — that leaves
+        the predicate in place and makes the arm *more* filtered, not less, because at a date past
+        every withdrawal only the current revision survives. The first version of this project made
+        exactly that mistake and published the resulting recall as the value of the filter.
         """
         call_started = time.perf_counter()
         timings: dict[str, float] = {}
         depth = max(query.top_k * STAGE_DEPTH_MULTIPLIER, MIN_STAGE_DEPTH)
-        filters = candidate_filter(query, languages=languages)
+        filters = candidate_filter(
+            query, languages=languages, apply_effectivity=apply_effectivity
+        )
 
         exact_ids, exact_terms = self._exact_stage(session, query, filters, timings)
         candidates = _timed(timings, "candidates", lambda: fetch_candidates(session, filters))

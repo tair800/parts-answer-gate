@@ -53,6 +53,7 @@ class Unit(enum.StrEnum):
     MONTHS = "months"
     BAR = "bar"
     AMPS = "amps"
+    VOLTS = "volts"
     GRADE = "grade"
     PART = "part"
 
@@ -84,6 +85,28 @@ TOPICS: Final = (
     Topic("relief_valve_setting", Unit.BAR, True, (40, 60, 80, 120)),
     Topic("gearbox_oil_grade", Unit.GRADE, False, (10, 15, 20, 25)),
     Topic("inspection_serial_note", Unit.PART, True, (2, 3, 4)),
+    # --- the confusable clusters ------------------------------------------------
+    # Each of the following shares vocabulary with one of the topics above. A corpus
+    # whose topics use disjoint vocabulary lets a lexical retriever separate them
+    # without understanding anything, which is what made the first benchmark trivial:
+    # BM25 alone reached recall@10 of 1.0000 and there was nothing left for ranking
+    # to do. Three torque topics, three filter topics and three sealing topics mean a
+    # question naming one of them has near neighbours it must be ranked above.
+    Topic("flange_bolt_torque", Unit.TORQUE, False, (60, 120, 180, 300)),
+    Topic("mounting_foot_torque", Unit.TORQUE, False, (40, 80, 160, 240)),
+    Topic("suction_strainer", Unit.PART, False, (125, 250, 400)),
+    Topic("breather_filter", Unit.PART, False, (500, 750, 1000)),
+    Topic("shaft_seal_kit", Unit.PART, False, (12, 18, 24)),
+    Topic("valve_seal_kit", Unit.PART, False, (15, 22, 30)),
+    Topic("lubrication_interval", Unit.MONTHS, False, (3, 6, 9)),
+    Topic("inspection_interval", Unit.MONTHS, False, (6, 12, 18)),
+    Topic("heater_fuse", Unit.AMPS, False, (8, 16, 32)),
+    Topic("sensor_supply_voltage", Unit.VOLTS, False, (5, 10, 20)),
+    Topic("idler_bearing", Unit.PART, False, (80, 95, 105, 115)),
+    Topic("pilot_pressure_setting", Unit.BAR, False, (30, 45, 70, 90)),
+    Topic("case_drain_limit", Unit.BAR, False, (20, 35, 50)),
+    Topic("coolant_capacity", Unit.LITRES, False, (35, 45, 55, 65)),
+    Topic("retrofit_bracket_note", Unit.PART, True, (2, 4, 6)),
 )
 
 #: Topics whose value is a measurement rather than a part number. Only these are used for the
@@ -217,6 +240,72 @@ FAMILIES: Final = (
         variants=(Variant("CT4-25", 900_000), Variant("CT4-25E", 910_000)),
         has_bulletin=False,
     ),
+    Family(
+        family_id="fam-ax7-accumulator-station",
+        product=Trilingual(
+            en="AX7-160 Hydraulic Accumulator Station",
+            tr="AX7-160 Hidrolik Akümülatör İstasyonu",
+            ru="Гидроаккумуляторная станция AX7-160",
+        ),
+        variants=(
+            Variant("AX7-160", 1000000),
+            Variant("AX7-160P", 1010000),
+            Variant("AX7-165", 1020000),
+        ),
+        has_bulletin=True,
+    ),
+    Family(
+        family_id="fam-rm2-piston-motor",
+        product=Trilingual(
+            en="RM2-45 Radial Piston Motor",
+            tr="RM2-45 Radyal Pistonlu Motor",
+            ru="Радиально-поршневой гидромотор RM2-45",
+        ),
+        variants=(
+            Variant("RM2-45", 1100000),
+            Variant("RM2-45D", 1110000),
+        ),
+        has_bulletin=False,
+    ),
+    Family(
+        family_id="fam-bd6-disc-brake",
+        product=Trilingual(
+            en="BD6-320 Wet Multi-Disc Brake",
+            tr="BD6-320 Yağ Banyolu Çok Diskli Fren",
+            ru="Многодисковый тормоз в масляной ванне BD6-320",
+        ),
+        variants=(
+            Variant("BD6-320", 1200000),
+            Variant("BD6-325", 1210000),
+        ),
+        has_bulletin=True,
+    ),
+    Family(
+        family_id="fam-sw3-rotary-union",
+        product=Trilingual(
+            en="SW3-80 Hydraulic Rotary Union",
+            tr="SW3-80 Hidrolik Döner Rakor",
+            ru="Гидравлическое вращающееся соединение SW3-80",
+        ),
+        variants=(
+            Variant("SW3-80", 1300000),
+            Variant("SW3-80T", 1310000),
+        ),
+        has_bulletin=False,
+    ),
+    Family(
+        family_id="fam-lg1-lubrication-unit",
+        product=Trilingual(
+            en="LG1-18 Automatic Lubrication Unit",
+            tr="LG1-18 Otomatik Yağlama Ünitesi",
+            ru="Автоматическая станция смазки LG1-18",
+        ),
+        variants=(
+            Variant("LG1-18", 1400000),
+            Variant("LG1-24", 1410000),
+        ),
+        has_bulletin=False,
+    ),
 )
 
 _TOPICS_BY_KEY: Final = {topic.key: topic for topic in TOPICS}
@@ -226,28 +315,31 @@ def topic_by_key(key: str) -> Topic:
     return _TOPICS_BY_KEY[key]
 
 
-def spec_options(unit: Unit, variant_index: int) -> tuple[int, ...]:
-    """The values a variant may take for a unit — disjoint from its siblings' by construction.
+#: `unit -> (first value for variant 0, gap between variants, step within a band, values per band)`.
+#:
+#: One table rather than seven branches, so a new unit is a row and not a code path. Every band is
+#: `base = start + variant_index * gap`, and `gap` is always wider than the band the step and count
+#: produce — which is what makes the bands **disjoint**. See the module docstring: overlapping
+#: bands would let a wrong-variant answer be accidentally correct, and kill condition B is worth
+#: nothing against a corpus where that can happen.
+_BANDS: Final[dict[Unit, tuple[int, int, int, int]]] = {
+    Unit.TORQUE: (40, 24, 4, 6),
+    Unit.LITRES: (40, 30, 5, 6),
+    Unit.MONTHS: (6, 9, 3, 2),
+    Unit.BAR: (150, 60, 10, 5),
+    Unit.AMPS: (4, 8, 2, 2),
+    Unit.VOLTS: (24, 24, 6, 3),
+    Unit.GRADE: (32, 46, 14, 2),
+}
 
-    See the module docstring: overlapping bands would let a wrong-variant answer be accidentally
-    correct, and kill condition B is worth nothing against a corpus where that can happen.
-    """
-    if unit is Unit.TORQUE:
-        base = 40 + variant_index * 24
-        return tuple(range(base, base + 21, 4))
-    if unit is Unit.LITRES:
-        base = 40 + variant_index * 30
-        return tuple(range(base, base + 26, 5))
-    if unit is Unit.MONTHS:
-        return ((6, 9), (12, 18), (24, 36))[variant_index]
-    if unit is Unit.BAR:
-        base = 150 + variant_index * 60
-        return tuple(range(base, base + 41, 10))
-    if unit is Unit.AMPS:
-        return ((4, 6), (10, 16), (20, 25))[variant_index]
-    if unit is Unit.GRADE:
-        return ((32, 46), (68, 100), (150, 220))[variant_index]
-    raise ValueError(f"{unit} states a part number, which is not drawn from a numeric band")
+
+def spec_options(unit: Unit, variant_index: int) -> tuple[int, ...]:
+    """The values a variant may take for a unit — disjoint from its siblings' by construction."""
+    if unit not in _BANDS:
+        raise ValueError(f"{unit} states a part number, which is not drawn from a numeric band")
+    start, gap, step, count = _BANDS[unit]
+    base = start + variant_index * gap
+    return tuple(base + step * offset for offset in range(count))
 
 
 #: How a measurement is written in each language. Units are localised where a technician would
@@ -259,6 +351,7 @@ _UNIT_TEXT: Final[dict[Unit, Trilingual]] = {
     Unit.LITRES: Trilingual(en="{n} L", tr="{n} L", ru="{n} л"),
     Unit.BAR: Trilingual(en="{n} bar", tr="{n} bar", ru="{n} бар"),
     Unit.AMPS: Trilingual(en="{n} A", tr="{n} A", ru="{n} A"),
+    Unit.VOLTS: Trilingual(en="{n} V", tr="{n} V", ru="{n} В"),
     Unit.GRADE: Trilingual(en="ISO VG {n}", tr="ISO VG {n}", ru="ISO VG {n}"),
 }
 

@@ -47,31 +47,40 @@ from parts_answer_gate.domain import Chunk, Document, Effectivity, Language, Ser
 
 __all__ = [
     "BULLETIN",
+    "CORRECTED_MANUAL",
     "MANUAL",
     "BuiltCorpus",
     "BuiltDocument",
     "Bulletin",
     "BulletinEntry",
     "ChunkKey",
+    "Correction",
     "Revision",
     "Spec",
     "build_corpus",
     "omitted_topic",
     "plan_bulletin",
+    "plan_correction",
     "plan_revisions",
     "spec_for",
 ]
 
 MANUAL = "manual"
 BULLETIN = "bulletin"
+#: A re-issue of one manual revision carrying the same validity and a later knowledge date.
+CORRECTED_MANUAL = "corrected_manual"
 
 #: How often a specification is revised at a revision boundary. Low enough that most chunks survive
 #: a revision unchanged — which is what gives the index-lifecycle work something real to measure —
 #: and high enough that every family accumulates withdrawn part numbers.
 _CHANGE_RATE = 0.35
 
-_MIN_REVISIONS = 3
-_MAX_REVISIONS = 4
+#: Revisions per family. Raised from 3-4 for the second benchmark: ADR-001's floor of 25
+#: supersession edges is a floor on **distinct** edges, and the first corpus met it only by
+#: counting the English, Turkish and Russian renderings of one withdrawal as three. Twenty-three
+#: distinct edges against a floor of twenty-five is a miss however the rest is read. ADR-002.
+_MIN_REVISIONS = 4
+_MAX_REVISIONS = 6
 
 #: Chunks per printed page. Arbitrary, but a citation without a page number is harder to check
 #: against a paper manual than one with it, and the whole project is about checkable citations.
@@ -109,6 +118,36 @@ class Spec:
             return self.part
         assert self.number is not None
         return render_value(unit, self.number, language)
+
+
+@dataclass(frozen=True)
+class Correction:
+    """A **knowledge-time** event: what we later learned we had got wrong.
+
+    Distinct from a revision, and the distinction is the whole of the second bitemporal axis. A
+    revision changes what is true of the machine going forward: validity ends, a successor begins.
+    A correction changes what we *believed* about a period that is already over — the machine never
+    changed, our record of it did.
+
+    So the corrected document keeps the original's `valid_from` and `valid_to` exactly, and differs
+    only in knowledge time: the original gains a `known_to`, the correction carries `known_from`
+    from the day the error was found. An as-of query at a date inside that validity window then has
+    two right answers depending on which knowledge date it asks about, which is the property a
+    system with a single date cannot express.
+    """
+
+    family_id: str
+    #: Which revision was wrong. Never the last one — a correction to the revision currently in
+    #: force is indistinguishable from simply revising it, and would prove nothing about the
+    #: second axis.
+    revision_index: int
+    #: The day the error was found. Always after the corrected revision stopped being valid, so
+    #: the case is unambiguous: by the time we knew, the period was already history.
+    known_from: date
+    variant_id: str
+    topic_key: str
+    #: The value the manual should have stated.
+    number: int
 
 
 @dataclass(frozen=True)
@@ -150,6 +189,9 @@ class BuiltCorpus:
     documents: tuple[BuiltDocument, ...]
     revisions: Mapping[str, tuple[Revision, ...]]
     bulletins: Mapping[str, Bulletin]
+    #: family_id -> the knowledge-time error that family later discovered. Absent for families
+    #: that never got one; the questions module reads it to build the bitemporal cases.
+    corrections: Mapping[str, Correction]
     #: (family_id, variant_id, topic_key, revision_index) -> Spec
     specs: Mapping[tuple[str, str, str, int], Spec]
     #: (family_id, variant_id) -> the one topic this variant's manual does not cover
@@ -301,6 +343,52 @@ def plan_bulletin(family: Family, revisions: tuple[Revision, ...], specs: _SpecM
     return Bulletin(family.family_id, current.valid_from + timedelta(days=offset), tuple(entries))
 
 
+def plan_correction(
+    family: Family, revisions: tuple[Revision, ...], specs: _SpecMap
+) -> Correction | None:
+    """The knowledge-time error this family later discovered, or `None` if it had none.
+
+    Drawn from a stream so it is reproducible, and confined to a revision that is **already out of
+    force** by the time the correction lands. That ordering is what makes the bitemporal case
+    unambiguous rather than merely two-dimensional: the validity window is closed, so the only
+    thing that can differ between two answers about it is which knowledge date was asked.
+
+    Returns `None` for families with fewer than three revisions, where "not the first and not the
+    last" leaves nothing to choose.
+    """
+    if len(revisions) < 3:
+        return None
+    if stream("has-correction", family.family_id).random() >= 0.5:
+        return None
+
+    picker = stream("correction", family.family_id)
+    # Never the last revision: correcting the one still in force is just revising it.
+    index = picker.randrange(0, len(revisions) - 1)
+    revision = revisions[index]
+    assert revision.valid_to is not None
+
+    variant = family.variants[picker.randrange(len(family.variants))]
+    variant_index = family.variants.index(variant)
+    candidates = [key for key in MEASURED_TOPIC_KEYS if key != omitted_topic(family, variant)]
+    topic_key = candidates[picker.randrange(len(candidates))]
+    topic = topic_by_key(topic_key)
+
+    stated = specs[(family.family_id, variant.variant_id, topic_key, index)].number
+    options = [n for n in spec_options(topic.unit, variant_index) if n != stated]
+    number = options[picker.randrange(len(options))]
+
+    # Found after the revision was withdrawn, by a margin drawn from its own stream.
+    discovered = revision.valid_to + timedelta(days=picker.randint(30, 400))
+    return Correction(
+        family_id=family.family_id,
+        revision_index=index,
+        known_from=discovered,
+        variant_id=variant.variant_id,
+        topic_key=topic_key,
+        number=number,
+    )
+
+
 # ------------------------------------------------------------------------------------ rendering
 
 
@@ -380,14 +468,45 @@ def _render_manual(
     revisions: tuple[Revision, ...],
     specs: _SpecMap,
     language: Language,
+    *,
+    correction: Correction | None = None,
+    as_correction: bool = False,
 ) -> BuiltDocument:
-    """One revision of one family's manual, in one language."""
-    document_id = _document_id(family, "man", revision.code, language)
+    """One revision of one family's manual, in one language.
+
+    `correction` is this revision's knowledge-time error, when it has one. The same function
+    renders both sides of it, because the two documents must differ in exactly one value and one
+    pair of knowledge dates — rendering them from separate code would let a second difference in.
+
+    `as_correction=False` gives the original: the value as first published, believed from the day
+    it was issued until the day the error was found.
+    `as_correction=True` gives the corrected re-issue: same validity, the fixed value, believed
+    from the day the error was found onwards.
+    """
+    corrected_here = correction is not None and correction.revision_index == revision.index
+    if as_correction and not corrected_here:
+        raise ValueError("asked for a correction of a revision that has none")
+
+    series_code = "manc" if as_correction else "man"
+    document_id = _document_id(family, series_code, revision.code, language)
     successor = (
         _document_id(family, "man", revisions[revision.index + 1].code, language)
         if revision.valid_to is not None
         else None
     )
+
+    # Knowledge time. The overwhelming majority of documents were believed from the day they were
+    # issued and still are, which is why both defaults sit here rather than at every call site.
+    known_from = revision.valid_from
+    known_to: date | None = None
+    corrected_by: str | None = None
+    if corrected_here:
+        assert correction is not None
+        if as_correction:
+            known_from = correction.known_from
+        else:
+            known_to = correction.known_from
+            corrected_by = _document_id(family, "manc", revision.code, language)
 
     cursor = _Cursor()
     cursor.add(
@@ -408,6 +527,19 @@ def _render_manual(
             if topic.key == omitted:
                 continue
             spec = specs[(family.family_id, variant.variant_id, topic.key, revision.index)]
+
+            # The one value the correction changes. Everything else about the corrected document
+            # is identical to the original, which is what makes the pair a clean test: a reader
+            # comparing the two sees one number and two knowledge dates, and nothing else.
+            value = spec.value(topic.unit, language)
+            if (
+                as_correction
+                and correction is not None
+                and correction.variant_id == variant.variant_id
+                and correction.topic_key == topic.key
+            ):
+                value = render_value(topic.unit, correction.number, language)
+
             block = _section_block(
                 language=language,
                 section=f"{variant_index + 1}.{topic_index + 1}",
@@ -417,7 +549,7 @@ def _render_manual(
                 .of(language)
                 .format(
                     variant=variant.variant_id,
-                    value=spec.value(topic.unit, language),
+                    value=value,
                     part=spec.aux_part,
                     n=spec.aux_number,
                 ),
@@ -442,6 +574,9 @@ def _render_manual(
                     # predicate that must not need a join to decide whether a chunk was in force.
                     valid_from=revision.valid_from,
                     valid_to=revision.valid_to,
+                    known_from=known_from,
+                    known_to=known_to,
+                    corrected_by=corrected_by,
                     superseded_by=successor,
                 )
             )
@@ -456,11 +591,15 @@ def _render_manual(
         revision=revision.code,
         valid_from=revision.valid_from,
         valid_to=revision.valid_to,
+        known_from=known_from,
+        known_to=known_to,
+        corrected_by=corrected_by,
         superseded_by=successor,
-        source_uri=_source_uri(family, MANUAL, revision.code, language),
+        source_uri=_source_uri(family, series_code, revision.code, language),
         checksum=_checksum(body),
     )
-    return BuiltDocument(document, MANUAL, revision.index, body, tuple(chunks), tuple(topic_keys))
+    series = CORRECTED_MANUAL if as_correction else MANUAL
+    return BuiltDocument(document, series, revision.index, body, tuple(chunks), tuple(topic_keys))
 
 
 def _render_bulletin(family: Family, bulletin: Bulletin, language: Language) -> BuiltDocument:
@@ -521,6 +660,9 @@ def _render_bulletin(family: Family, bulletin: Bulletin, language: Language) -> 
                 effectivity=Effectivity(variant_id=entry.variant_id, serials=SerialRange()),
                 valid_from=bulletin.valid_from,
                 valid_to=None,
+                known_from=bulletin.valid_from,
+                known_to=None,
+                corrected_by=None,
                 superseded_by=None,
             )
         )
@@ -535,6 +677,9 @@ def _render_bulletin(family: Family, bulletin: Bulletin, language: Language) -> 
         revision="FB1",
         valid_from=bulletin.valid_from,
         valid_to=None,
+        known_from=bulletin.valid_from,
+        known_to=None,
+        corrected_by=None,
         superseded_by=None,
         source_uri=_source_uri(family, BULLETIN, "fb1", language),
         checksum=_checksum(body_text),
@@ -591,15 +736,43 @@ def build_corpus() -> BuiltCorpus:
         for family in FAMILIES
         if family.has_bulletin
     }
+    corrections: dict[str, Correction] = {}
+    for family in FAMILIES:
+        planned = plan_correction(family, revisions[family.family_id], specs)
+        if planned is not None:
+            corrections[family.family_id] = planned
 
     documents: list[BuiltDocument] = []
     chunk_by_key: dict[ChunkKey, Chunk] = {}
     for family in FAMILIES:
+        correction = corrections.get(family.family_id)
         for language in Language:
             for revision in revisions[family.family_id]:
                 documents.append(
-                    _render_manual(family, revision, revisions[family.family_id], specs, language)
+                    _render_manual(
+                        family,
+                        revision,
+                        revisions[family.family_id],
+                        specs,
+                        language,
+                        correction=correction,
+                    )
                 )
+                # The corrected re-issue, carrying the same validity and a later knowledge date.
+                # Emitted next to its original rather than in a second pass, so the pair cannot
+                # drift apart through an edit to one loop and not the other.
+                if correction is not None and correction.revision_index == revision.index:
+                    documents.append(
+                        _render_manual(
+                            family,
+                            revision,
+                            revisions[family.family_id],
+                            specs,
+                            language,
+                            correction=correction,
+                            as_correction=True,
+                        )
+                    )
             if family.family_id in bulletins:
                 documents.append(_render_bulletin(family, bulletins[family.family_id], language))
 
@@ -621,6 +794,7 @@ def build_corpus() -> BuiltCorpus:
         documents=tuple(documents),
         revisions=revisions,
         bulletins=bulletins,
+        corrections=corrections,
         specs=specs,
         omitted_topics=omitted,
         chunk_by_key=chunk_by_key,

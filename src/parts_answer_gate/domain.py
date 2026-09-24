@@ -153,9 +153,24 @@ class Document(_Frozen):
     title: str
     language: Language
     revision: str
-    #: When this revision came into force, and when it stopped. `None` means still in force.
+    #: **Valid time.** When this revision came into force *for the machine*, and when it stopped.
+    #: `None` means still in force.
     valid_from: date
     valid_to: date | None = None
+    #: **Knowledge time.** When the organisation learned this, and when it stopped believing it.
+    #: `None` means still believed.
+    #:
+    #: The second axis is what makes this bitemporal rather than merely versioned. Valid time
+    #: answers *what was true for the machine in March*; knowledge time answers *what we knew in
+    #: March*. They are independent: a correction issued in 2025 about a 2021 procedure is valid in
+    #: 2021 and known from 2025, and the two questions have different right answers. Without this
+    #: field a correction silently rewrites history, and an audit asking "what did the technician
+    #: have in front of them?" cannot be answered at all.
+    known_from: date
+    known_to: date | None = None
+    #: The document that corrected this one's *knowledge* — same validity period, better
+    #: information. Distinct from `superseded_by`, which replaces a revision going forward.
+    corrected_by: str | None = None
     #: The revision that replaced this one. The single most important field in the project.
     superseded_by: str | None = None
     source_uri: str
@@ -177,8 +192,41 @@ class Document(_Frozen):
             )
         return self
 
+    @model_validator(mode="after")
+    def _correction_is_consistent(self) -> Self:
+        """A corrected document has both an end to its knowledge and a corrector, or neither.
+
+        The same shape as `_supersession_is_consistent`, and for the same reason: a document with
+        `corrected_by` and no `known_to` is still believed for ever, so a knowledge-time query at
+        any date keeps returning superseded information alongside the correction.
+        """
+        if (self.corrected_by is None) != (self.known_to is None):
+            raise ValueError(
+                f"{self.document_id} has corrected_by={self.corrected_by!r} and "
+                f"known_to={self.known_to!r}; a corrected document needs both, a current one "
+                "needs neither"
+            )
+        return self
+
     def in_force_on(self, as_of: date) -> bool:
         return self.valid_from <= as_of and (self.valid_to is None or as_of < self.valid_to)
+
+    def known_on(self, known_as_of: date | None) -> bool:
+        """Whether this was believed at the given *knowledge* date. Half-open, like validity.
+
+        `None` means current knowledge, which is `known_to is None` — still believed, never
+        corrected. It is not the same as passing today's date, and the difference matters for a
+        document corrected with a future-dated correction.
+        """
+        if known_as_of is None:
+            return self.known_to is None
+        return self.known_from <= known_as_of and (
+            self.known_to is None or known_as_of < self.known_to
+        )
+
+    def visible_at(self, as_of: date, known_as_of: date | None = None) -> bool:
+        """Both axes at once: in force for the machine, and known to us."""
+        return self.in_force_on(as_of) and self.known_on(known_as_of)
 
 
 class Chunk(_Frozen):
@@ -205,7 +253,13 @@ class Chunk(_Frozen):
     #: from.
     valid_from: date
     valid_to: date | None = None
+    #: Denormalised from the document, same as validity. Both axes live on the chunk so the
+    #: candidate-set predicate stays a single-table `WHERE` and keeps running before ranking — a
+    #: join here would be the thing that tempts somebody to filter afterwards instead.
+    known_from: date
+    known_to: date | None = None
     superseded_by: str | None = None
+    corrected_by: str | None = None
 
     @property
     def part_numbers(self) -> frozenset[str]:
@@ -213,6 +267,17 @@ class Chunk(_Frozen):
 
     def in_force_on(self, as_of: date) -> bool:
         return self.valid_from <= as_of and (self.valid_to is None or as_of < self.valid_to)
+
+    def known_on(self, known_as_of: date | None) -> bool:
+        """`None` means current knowledge. See `Document.known_on`."""
+        if known_as_of is None:
+            return self.known_to is None
+        return self.known_from <= known_as_of and (
+            self.known_to is None or known_as_of < self.known_to
+        )
+
+    def visible_at(self, as_of: date, known_as_of: date | None = None) -> bool:
+        return self.in_force_on(as_of) and self.known_on(known_as_of)
 
 
 class Query(_Frozen):
@@ -226,9 +291,29 @@ class Query(_Frozen):
     text: str = Field(min_length=1, max_length=2000)
     language: Language = Language.EN
     as_of: date
+    #: The **knowledge** date: what the organisation knew, as opposed to what was true of the
+    #: machine. `None` means *current knowledge* — everything still believed, corrections included.
+    #:
+    #: Separate from `as_of` because the two questions are genuinely different. A technician asking
+    #: *what was the correct torque in March 2021* wants today's best understanding of March 2021,
+    #: which is `as_of=2021-03` and this left at `None`. An auditor asking *what did the technician
+    #: have in front of them in March 2021* wants the belief of the time, which is `as_of=2021-03`
+    #: and `known_as_of=2021-03`. A system with one date can express one of those and silently
+    #: answers the other.
+    #:
+    #: `None` deliberately means current rather than "the same as `as_of`". Defaulting knowledge to
+    #: the validity date would hide every correction from every historical question — a technician
+    #: asking about a 2021 procedure would be handed the 2021 mistake rather than the fix, which is
+    #: the failure mode this project exists to prevent, arrived at from the other direction.
+    known_as_of: date | None = None
     variant_id: str | None = None
     serial: int | None = None
     top_k: Annotated[int, Field(ge=1, le=100)] = 10
+
+    @property
+    def asks_historical_knowledge(self) -> bool:
+        """Whether this pins knowledge time — an audit question rather than a lookup."""
+        return self.known_as_of is not None
 
 
 class RetrievedChunk(_Frozen):

@@ -5,12 +5,18 @@
   "seed": "parts-answer-gate/ADR-001/corpus/v1",
   "split_rule": "blake2b(family_id, digest_size=8) % 100 < 34  (big-endian)",
   "split_by": "product_family",
-  "variants": 20,
-  "documents": 108,
-  "supersession_edges": 69,
-  "chunks": 1941,
-  "questions": 432,
-  "unanswerable_questions": 132,
+  "variants": 31,
+  "documents": 84,
+  "supersession_edges": 56,
+  "chunks": 4140,
+  "questions": 350,
+  "unanswerable_questions": 102,
+  "counted_by": "distinct content; a translation of a passage is not a second passage. The *_rows figures below count one row per language rendering.",
+  "document_rows": 252,
+  "supersession_edge_rows": 192,
+  "chunk_rows": 12420,
+  "question_rows": 1050,
+  "unanswerable_question_rows": 306,
   "languages": [
     "en",
     "tr",
@@ -18,44 +24,49 @@
   ],
   "documents_in_both_splits": 0,
   "leaked_documents": [],
-  "families": 9,
+  "families": 14,
   "holdout_families": [
     "fam-ct4-drive-controller",
+    "fam-sw3-rotary-union",
     "fam-tr9-compressor",
     "fam-xp400-hydraulic-pump"
   ],
   "development_families": [
+    "fam-ax7-accumulator-station",
+    "fam-bd6-disc-brake",
     "fam-dl3-valve-block",
     "fam-hz8-filtration-skid",
+    "fam-lg1-lubrication-unit",
     "fam-mk7-gearbox",
     "fam-nk5-winch-drive",
     "fam-qs6-actuator",
+    "fam-rm2-piston-motor",
     "fam-vb2-cooling-unit"
   ],
   "documents_by_split": {
-    "development": 66,
-    "holdout": 42
+    "development": 177,
+    "holdout": 75
   },
   "chunks_by_split": {
-    "development": 1173,
-    "holdout": 768
+    "development": 8664,
+    "holdout": 3756
   },
   "questions_by_split": {
-    "development": 273,
-    "holdout": 159
+    "development": 738,
+    "holdout": 312
   },
   "questions_by_language": {
-    "en": 144,
-    "ru": 144,
-    "tr": 144
+    "en": 350,
+    "ru": 350,
+    "tr": 350
   },
   "unanswerable_by_kind": {
-    "absent_specification": 18,
-    "attribute_absent_for_existing_product": 18,
-    "near_match_different_identifier": 18,
-    "superseded_without_replacement_asked": 18,
-    "contradictory_sources": 24,
-    "different_product_family": 18,
-    "malformed_part_number": 18
+    "absent_specification": 45,
+    "attribute_absent_for_existing_product": 45,
+    "near_match_different_identifier": 45,
+    "superseded_without_replacement_asked": 45,
+    "contradictory_sources": 36,
+    "different_product_family": 45,
+    "malformed_part_number": 45
   }
 }

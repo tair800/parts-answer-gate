@@ -170,6 +170,81 @@ TOPIC_HEADING: Final[dict[str, Trilingual]] = {
         tr="Seri numarası sınırlı bağlantı flanşı muayenesi",
         ru="Проверка монтажного фланца с ограничением по серийным номерам",
     ),
+    "flange_bolt_torque": Trilingual(
+        en="Mounting flange bolt torque",
+        tr="Bağlantı flanşı cıvata torku",
+        ru="Момент затяжки болтов монтажного фланца",
+    ),
+    "mounting_foot_torque": Trilingual(
+        en="Baseplate mounting foot bolt torque",
+        tr="Taban plakası ayak cıvata torku",
+        ru="Момент затяжки болтов опорных лап",
+    ),
+    "suction_strainer": Trilingual(
+        en="Suction-side strainer element",
+        tr="Emiş tarafı süzgeç elemanı",
+        ru="Элемент всасывающего фильтра-сетки",
+    ),
+    "breather_filter": Trilingual(
+        en="Reservoir breather filter",
+        tr="Depo havalandırma filtresi",
+        ru="Воздушный фильтр сапуна бака",
+    ),
+    "shaft_seal_kit": Trilingual(
+        en="Rotating shaft seal kit",
+        tr="Döner mil salmastra takımı",
+        ru="Комплект уплотнений вращающегося вала",
+    ),
+    "valve_seal_kit": Trilingual(
+        en="Control valve seal kit",
+        tr="Kumanda valfi salmastra takımı",
+        ru="Комплект уплотнений управляющего клапана",
+    ),
+    "lubrication_interval": Trilingual(
+        en="Bearing regreasing interval",
+        tr="Rulman gresleme aralığı",
+        ru="Интервал смазывания подшипников",
+    ),
+    "inspection_interval": Trilingual(
+        en="Scheduled inspection interval",
+        tr="Planlı muayene aralığı",
+        ru="Интервал планового осмотра",
+    ),
+    "heater_fuse": Trilingual(
+        en="Anti-condensation heater fuse",
+        tr="Yoğuşma önleyici ısıtıcı sigortası",
+        ru="Предохранитель антиконденсатного обогревателя",
+    ),
+    "sensor_supply_voltage": Trilingual(
+        en="Sensor supply rail voltage",
+        tr="Sensör besleme hattı gerilimi",
+        ru="Напряжение шины питания датчиков",
+    ),
+    "idler_bearing": Trilingual(
+        en="Idler shaft bearing",
+        tr="Avara mili rulmanı",
+        ru="Подшипник промежуточного вала",
+    ),
+    "pilot_pressure_setting": Trilingual(
+        en="Pilot circuit pressure setting",
+        tr="Pilot devre basınç ayarı",
+        ru="Настройка давления пилотного контура",
+    ),
+    "case_drain_limit": Trilingual(
+        en="Case drain pressure limit",
+        tr="Karter drenaj basıncı sınırı",
+        ru="Предельное давление дренажа корпуса",
+    ),
+    "coolant_capacity": Trilingual(
+        en="Cooling circuit fill volume",
+        tr="Soğutma devresi dolum hacmi",
+        ru="Объём заправки контура охлаждения",
+    ),
+    "retrofit_bracket_note": Trilingual(
+        en="Serial-limited retrofit mounting bracket",
+        tr="Seri numarası sınırlı sonradan takma braket",
+        ru="Монтажный кронштейн дооснащения с ограничением по серийным номерам",
+    ),
 }
 
 # --------------------------------------------------------------------------------- topic bodies
@@ -349,6 +424,342 @@ TOPIC_BODY: Final[dict[str, Trilingual]] = {
             "затронуты."
         ),
     ),
+    "flange_bolt_torque": Trilingual(
+        en=(
+            "Tighten the pump-to-gearbox mounting flange bolts on the {variant} to {value}, "
+            "working outward from the dowel in a star pattern over three passes. Fit gasket "
+            "{part} dry; a lubricated or re-used gasket bleeds off preload and the joint relaxes "
+            "below the specified figure within a shift. Do not torque the flange while the casing "
+            "is above {n} °C — the bolts lose tension as the housing cools and the face begins to "
+            "weep."
+        ),
+        tr=(
+            "{variant} üzerindeki pompa–şanzıman bağlantı flanşı cıvatalarını, pimden dışa doğru "
+            "yıldız düzeninde üç kademede {value} değerine sıkın. {part} contasını kuru olarak "
+            "takın; yağlanmış veya yeniden kullanılmış bir conta ön yükü boşaltır ve birleşme "
+            "yeri bir vardiya içinde belirtilen değerin altına düşer. Gövde {n} °C üzerindeyken "
+            "flanşı sıkmayın — gövde soğudukça cıvatalar gerginliğini kaybeder ve yüzey "
+            "sızdırmaya başlar."
+        ),
+        ru=(
+            "На {variant} болты монтажного фланца между насосом и редуктором затягивайте моментом "
+            "{value} в три прохода по звёздной схеме, от установочного штифта наружу. Прокладку "
+            "{part} устанавливайте сухой; смазанная или повторно применённая прокладка снимает "
+            "предварительную затяжку, и стык за одну смену опускается ниже указанного значения. "
+            "Не затягивайте фланец при температуре корпуса выше {n} °C — при остывании болты "
+            "теряют натяг и стык начинает потеть."
+        ),
+    ),
+    "mounting_foot_torque": Trilingual(
+        en=(
+            "Tighten the baseplate mounting foot bolts of the {variant} to {value}, in diagonally "
+            "opposite pairs, with the machine cold and the coupling halves disconnected. Every "
+            "foot must bed fully on shim pack {part} before torque is applied; pulling a soft "
+            "foot down with the bolt distorts the housing and drags the shaft out of alignment. "
+            "Re-check each foot bolt after {n} hours of running, once the grout and the shim pack "
+            "have bedded in."
+        ),
+        tr=(
+            "{variant} taban plakası ayak cıvatalarını, makine soğukken ve kaplin yarımları "
+            "ayrılmışken çapraz çiftler hâlinde {value} değerine sıkın. Tork uygulanmadan önce "
+            "her ayak {part} şim takımına tam oturmalıdır; boşluklu bir ayağı cıvatayla aşağı "
+            "çekmek gövdeyi çarpıtır ve mili eksenden kaçırır. Harç ve şim takımı oturduktan "
+            "sonra, {n} saat çalışmanın ardından her ayak cıvatasını yeniden kontrol edin."
+        ),
+        ru=(
+            "Болты опорных лап {variant} на фундаментной плите затягивайте моментом {value} "
+            "крест-накрест, попарно, на холодной машине при разъединённых полумуфтах. До "
+            "приложения момента каждая лапа должна полностью опираться на пакет прокладок {part}; "
+            "подтягивание болтом лапы с зазором деформирует корпус и уводит вал из соосности. "
+            "Через {n} часов работы, после осадки подливки и пакета прокладок, повторно проверьте "
+            "каждый болт лапы."
+        ),
+    ),
+    "suction_strainer": Trilingual(
+        en=(
+            "The suction-side strainer element for the {variant} is {value}. Clean it at every "
+            "service interval and fit new gasket {part} on reassembly; the element itself is "
+            "replaced only when the mesh is torn or distorted. A clogged strainer starves the "
+            "pump inlet, and cavitation damage appears within {n} operating hours."
+        ),
+        tr=(
+            "{variant} için emiş tarafı süzgeç elemanı: {value}. Her servis aralığında temizleyin "
+            "ve montajda yeni {part} contası takın; eleman yalnızca tel eleği yırtıldığında veya "
+            "deforme olduğunda değiştirilir. Tıkanmış süzgeç pompa emişini besleyemez ve {n} "
+            "çalışma saati içinde kavitasyon hasarı ortaya çıkar."
+        ),
+        ru=(
+            "Элемент всасывающего фильтра-сетки для {variant} — {value}. Очищайте его при каждом "
+            "обслуживании и при сборке устанавливайте новую прокладку {part}; сам элемент "
+            "заменяют только при разрыве или деформации сетки. Засорённый фильтр-сетка "
+            "перекрывает подачу на вход насоса, и кавитационные повреждения появляются за {n} "
+            "часов работы."
+        ),
+    ),
+    "breather_filter": Trilingual(
+        en=(
+            "The reservoir breather filter for the {variant} is {value}. Replace it at every "
+            "service interval together with adaptor seal {part}; the element is not washable and "
+            "must not be refitted after cleaning. A clogged breather lets the reservoir draw "
+            "unfiltered air past the cap seal, and the oil reaches its water limit within {n} "
+            "operating hours."
+        ),
+        tr=(
+            "{variant} için depo havalandırma filtresi: {value}. Her servis aralığında {part} "
+            "adaptör contasıyla birlikte değiştirin; eleman yıkanabilir değildir ve "
+            "temizlendikten sonra tekrar takılmamalıdır. Tıkanmış havalandırma filtresi deponun "
+            "kapak keçesinden filtresiz hava çekmesine yol açar ve yağ {n} çalışma saati içinde "
+            "su sınırına ulaşır."
+        ),
+        ru=(
+            "Воздушный фильтр сапуна бака для {variant} — {value}. Заменяйте его при каждом "
+            "обслуживании вместе с уплотнением адаптера {part}; элемент не подлежит промывке и "
+            "после очистки повторно не устанавливается. Засорённый сапун заставляет бак "
+            "подсасывать нефильтрованный воздух мимо уплотнения крышки, и масло достигает предела "
+            "по содержанию воды за {n} часов работы."
+        ),
+    ),
+    "shaft_seal_kit": Trilingual(
+        en=(
+            "Rotating shaft seal kit for the {variant}: {value}. Replace the lip seal together "
+            "with wear sleeve {part} at every shaft overhaul; neither part is reusable once it "
+            "has been pulled off the shaft. A seal track running hotter than {n} °C hardens the "
+            "lip, and a hardened lip leaks within one shift."
+        ),
+        tr=(
+            "{variant} için döner mil salmastra takımı: {value}. Mil keçesini her mil "
+            "revizyonunda {part} aşınma kovanıyla birlikte değiştirin; milden sökülen parçaların "
+            "hiçbiri tekrar kullanılamaz. {n} °C üzerinde çalışan keçe yatağı dudağı sertleştirir "
+            "ve sertleşmiş dudak bir vardiya içinde sızdırır."
+        ),
+        ru=(
+            "Комплект уплотнений вращающегося вала для {variant}: {value}. Заменяйте манжетное "
+            "уплотнение вместе с защитной втулкой {part} при каждой переборке вала; снятые с вала "
+            "детали повторно не применяются. Рабочая дорожка уплотнения с температурой выше {n} "
+            "°C делает кромку жёсткой, а жёсткая кромка начинает пропускать масло в течение одной "
+            "смены."
+        ),
+    ),
+    "valve_seal_kit": Trilingual(
+        en=(
+            "Control valve seal kit for the {variant}: {value}. Replace every sealing ring in the "
+            "kit whenever the spool is withdrawn and fit a new mounting gasket {part} at the same "
+            "time; the gasket is not reusable. Internal leakage past a reused seal drops the "
+            "pilot pressure, and the spool will not shift at flows below {n} l/min."
+        ),
+        tr=(
+            "{variant} için kumanda valfi salmastra takımı: {value}. Sürgü söküldüğünde takımdaki "
+            "tüm sızdırmazlık halkalarını değiştirin ve aynı işlemde yeni {part} montaj contasını "
+            "takın; conta tekrar kullanılamaz. Yeniden kullanılan bir halkadan geçen iç kaçak "
+            "pilot basıncını düşürür ve sürgü {n} l/dak altındaki debilerde konum değiştirmez."
+        ),
+        ru=(
+            "Комплект уплотнений управляющего клапана для {variant}: {value}. При каждом "
+            "извлечении золотника заменяйте все уплотнительные кольца из комплекта и одновременно "
+            "устанавливайте новую монтажную прокладку {part}; прокладка повторно не применяется. "
+            "Внутренняя утечка через повторно использованное кольцо снижает давление управления, "
+            "и золотник не переключается при расходе ниже {n} л/мин."
+        ),
+    ),
+    "lubrication_interval": Trilingual(
+        en=(
+            "Regrease the drive-end bearings of the {variant} every {value}, and after any wash- "
+            "down that reached the shaft seal. Use grease cartridge {part} only, and purge the "
+            "relief port until fresh grease appears at the housing. Halve the interval wherever "
+            "the ambient temperature stays above {n} °C; over-greasing at that duty churns the "
+            "bearing and raises its running temperature."
+        ),
+        tr=(
+            "{variant} tahrik tarafı rulmanlarını her {value} bir ve mil keçesine ulaşan her "
+            "yıkamadan sonra gresleyin. Yalnızca {part} gres kartuşunu kullanın ve gövdede taze "
+            "gres görünene kadar tahliye portundan boşaltın. Ortam sıcaklığının {n} °C üzerinde "
+            "kaldığı yerlerde aralığı yarıya indirin; bu yükte aşırı gresleme rulmanı döver ve "
+            "çalışma sıcaklığını yükseltir."
+        ),
+        ru=(
+            "Смазывайте подшипники приводной стороны {variant} каждые {value}, а также после "
+            "каждой мойки, затронувшей уплотнение вала. Применяйте только картридж со смазкой "
+            "{part} и продавливайте смазку через дренажный порт до появления свежей смазки в "
+            "корпусе. При температуре окружающего воздуха выше {n} °C сокращайте интервал вдвое; "
+            "избыток смазки при такой нагрузке взбивается и повышает рабочую температуру "
+            "подшипника."
+        ),
+    ),
+    "inspection_interval": Trilingual(
+        en=(
+            "Carry out the scheduled inspection of the {variant} every {value}, counted from "
+            "commissioning and not from the last repair. Record the findings on checklist {part} "
+            "and keep the signed copy for {n} years. An inspection deferred past the interval "
+            "voids the previous record, and the unit is treated as uninspected until a full "
+            "inspection has been completed."
+        ),
+        tr=(
+            "{variant} planlı muayenesini, son onarımdan değil devreye alma tarihinden itibaren "
+            "sayarak her {value} bir yapın. Bulguları {part} kontrol listesine kaydedin ve imzalı "
+            "nüshayı {n} yıl saklayın. Aralığı aşacak şekilde ertelenen muayene önceki kaydı "
+            "geçersiz kılar ve ünite, tam bir muayene tamamlanana kadar muayene edilmemiş "
+            "sayılır."
+        ),
+        ru=(
+            "Проводите плановый осмотр {variant} каждые {value}, считая от даты ввода в "
+            "эксплуатацию, а не от последнего ремонта. Результаты заносите в контрольный лист "
+            "{part} и храните подписанный экземпляр в течение {n} лет. Осмотр, отложенный сверх "
+            "интервала, аннулирует предыдущую запись, и агрегат считается неосмотренным до "
+            "проведения полного осмотра."
+        ),
+    ),
+    "heater_fuse": Trilingual(
+        en=(
+            "The anti-condensation heater circuit of the {variant} is protected by a {value} "
+            "fuse. Use holder {part}; the element draws its rated current continuously and a "
+            "time-delay fuse of the same rating is not interchangeable here. The circuit stays "
+            "live at {n} V with the main isolator open, so isolate the heater supply separately "
+            "before working in the terminal box."
+        ),
+        tr=(
+            "{variant} yoğuşma önleyici ısıtıcı devresi {value} sigorta ile korunur. {part} "
+            "sigorta yuvasını kullanın; eleman anma akımını sürekli çeker ve aynı değerdeki "
+            "gecikmeli sigorta burada yerine kullanılamaz. Ana şalter açıkken devre {n} V ile "
+            "gerilim altında kalır; bu nedenle klemens kutusunda çalışmadan önce ısıtıcı "
+            "beslemesini ayrıca izole edin."
+        ),
+        ru=(
+            "Цепь антиконденсатного обогревателя {variant} защищена предохранителем {value}. "
+            "Используйте держатель {part}; нагревательный элемент постоянно потребляет "
+            "номинальный ток, и инерционный предохранитель того же номинала здесь неприменим. При "
+            "разомкнутом главном рубильнике цепь остаётся под напряжением {n} В, поэтому перед "
+            "работой в клеммной коробке отдельно отключайте питание обогревателя."
+        ),
+    ),
+    "sensor_supply_voltage": Trilingual(
+        en=(
+            "The sensor supply rail of the {variant} is regulated to {value} at the module "
+            "terminal strip. Measure it at the sensor connector with harness {part} fitted, since "
+            "the drop across the loom is what the transducer actually sees. A rail that collapses "
+            "under the full {n} mA sensor load points to the regulator, not to the sensor."
+        ),
+        tr=(
+            "{variant} sensör besleme hattı, modül klemens bloğunda {value} olarak regüle edilir. "
+            "Ölçümü {part} kablo demeti takılıyken sensör soketinde yapın; çünkü transdüserin "
+            "gördüğü değer, demet üzerindeki düşümden sonraki değerdir. Tam {n} mA sensör yükü "
+            "altında çöken bir hat, sensörü değil regülatörü işaret eder."
+        ),
+        ru=(
+            "Шина питания датчиков {variant} стабилизирована на уровне {value} на клеммной "
+            "колодке модуля. Измеряйте её на разъёме датчика при установленном жгуте {part}, "
+            "поскольку преобразователь видит напряжение уже после падения на жгуте. Просадка шины "
+            "под полной нагрузкой датчиков {n} мА указывает на регулятор, а не на датчик."
+        ),
+    ),
+    "idler_bearing": Trilingual(
+        en=(
+            "Idler shaft bearing for the {variant}: {value}. Press it on against the inner race "
+            "only and retain it with circlip {part}, which is renewed at every bearing change. A "
+            "bearing driven on through the outer race brinells the track and runs above {n} °C "
+            "within the first shift."
+        ),
+        tr=(
+            "{variant} için avara mili rulmanı: {value}. Yalnızca iç bileziğe bastırarak monte "
+            "edin ve her rulman değişiminde yenilenen {part} segmanı ile sabitleyin. Dış "
+            "bilezikten zorlanarak takılan bir rulman yuvarlanma yüzeyini ezer ve ilk vardiya "
+            "içinde {n} °C üzerine ısınır."
+        ),
+        ru=(
+            "Подшипник промежуточного вала для {variant}: {value}. Запрессовывайте только по "
+            "внутреннему кольцу и фиксируйте стопорным кольцом {part}, которое заменяется при "
+            "каждой замене подшипника. Подшипник, запрессованный по наружному кольцу, "
+            "продавливает дорожку качения и уже в первую смену нагревается выше {n} °C."
+        ),
+    ),
+    "pilot_pressure_setting": Trilingual(
+        en=(
+            "Set the pilot circuit of the {variant} to {value} with the main circuit unloaded and "
+            "the oil at working temperature. Take the reading at gauge port {part} rather than at "
+            "the pump outlet; the outlet reading includes line loss at {n} l/min. A pilot "
+            "pressure set below this figure will not shift the main spool under load."
+        ),
+        tr=(
+            "{variant} pilot devresini, ana devre yüksüzken ve yağ çalışma sıcaklığındayken "
+            "{value} değerine ayarlayın. Okumayı pompa çıkışından değil {part} manometre "
+            "portundan alın; çıkış okuması {n} l/dak debideki hat kaybını içerir. Bu değerin "
+            "altına ayarlanan pilot basıncı, yük altında ana sürgüyü hareket ettirmez."
+        ),
+        ru=(
+            "Настройте пилотный контур {variant} на {value} при разгруженном главном контуре и "
+            "рабочей температуре масла. Снимайте показание с порта манометра {part}, а не с "
+            "выхода насоса; показание на выходе включает потери в линии при расходе {n} л/мин. "
+            "Пилотное давление, настроенное ниже этого значения, не перемещает главный золотник "
+            "под нагрузкой."
+        ),
+    ),
+    "case_drain_limit": Trilingual(
+        en=(
+            "Case drain pressure on the {variant} must not exceed {value}, measured at the drain "
+            "port with the oil at working temperature. Fit gauge adapter {part} in the drain "
+            "line; a reading taken downstream of the cooler is low by the cooler's own loss at "
+            "{n} l/min. Pressure above this figure lifts the shaft seal and the pump loses charge "
+            "within one shift."
+        ),
+        tr=(
+            "{variant} karter drenaj basıncı, yağ çalışma sıcaklığındayken drenaj portundan "
+            "ölçüldüğünde {value} değerini aşmamalıdır. Drenaj hattına {part} manometre "
+            "adaptörünü takın; soğutucunun çıkışından alınan okuma, {n} l/dak debideki soğutucu "
+            "kaybı kadar düşük çıkar. Bu değerin üzerindeki basınç mil keçesini kaldırır ve pompa "
+            "bir vardiya içinde besleme basıncını yitirir."
+        ),
+        ru=(
+            "Давление дренажа корпуса {variant} не должно превышать {value} при измерении на "
+            "дренажном порту и рабочей температуре масла. Установите в дренажную линию переходник "
+            "манометра {part}; показание, снятое после охладителя, занижено на собственные потери "
+            "охладителя при расходе {n} л/мин. Давление выше этого значения отрывает манжету "
+            "вала, и насос теряет подпитку в течение одной смены."
+        ),
+    ),
+    "coolant_capacity": Trilingual(
+        en=(
+            "The cooling circuit of the {variant} holds {value} between the minimum and maximum "
+            "marks of the expansion tank. Fill through cap {part} with the circuit cold; filling "
+            "hot traps air in the top of the cooler core. Do not exceed the upper mark — "
+            "expansion at {n} °C discharges coolant through the relief cap."
+        ),
+        tr=(
+            "{variant} soğutma devresi, genleşme tankındaki asgari ve azami işaretler arasında "
+            "{value} alır. Devre soğukken {part} kapağından doldurun; sıcakken yapılan dolum "
+            "soğutucu peteğinin üst kısmında hava hapseder. Üst işareti aşmayın — {n} °C "
+            "sıcaklıkta genleşme, soğutma sıvısını basınç kapağından dışarı atar."
+        ),
+        ru=(
+            "Контур охлаждения {variant} вмещает {value} между минимальной и максимальной метками "
+            "расширительного бака. Заправляйте через пробку {part} на холодном контуре; заправка "
+            "на горячем контуре оставляет воздух в верхней части сердцевины охладителя. Не "
+            "превышайте верхнюю метку — расширение при {n} °C выбрасывает охлаждающую жидкость "
+            "через предохранительную пробку."
+        ),
+    ),
+    "retrofit_bracket_note": Trilingual(
+        en=(
+            "Machines of the {variant} in the serial range stated below were built with the short "
+            "mounting foot and require retrofit bracket {value}. Install it together with shim "
+            "pack {part}, which restores the shaft height the short foot does not provide, and "
+            "torque the four fasteners in {n} stages. Units outside that block carry the tall "
+            "foot from the factory and need no bracket."
+        ),
+        tr=(
+            "Aşağıda belirtilen seri aralığındaki {variant} üniteleri kısa montaj ayağı ile "
+            "üretilmiştir ve {value} sonradan takma braketini gerektirir. Braketi, kısa ayağın "
+            "sağlamadığı mil yüksekliğini geri kazandıran {part} şim takımıyla birlikte monte "
+            "edin ve dört bağlantı elemanını {n} kademede sıkın. Bu blok dışındaki üniteler "
+            "fabrikadan uzun ayakla çıkmıştır ve brakete ihtiyaç duymaz."
+        ),
+        ru=(
+            "Агрегаты {variant} из указанного ниже диапазона серийных номеров изготовлены с "
+            "короткой опорной лапой и требуют кронштейна дооснащения {value}. Устанавливайте его "
+            "вместе с комплектом регулировочных прокладок {part}, который восстанавливает "
+            "недостающую при короткой лапе высоту вала, и затягивайте четыре крепёжных элемента в "
+            "{n} приёма. Агрегаты вне этого блока выходят с завода с высокой лапой и в кронштейне "
+            "не нуждаются."
+        ),
+    ),
 }
 
 BULLETIN_BODY: Final = Trilingual(
@@ -421,6 +832,81 @@ TOPIC_QUESTION: Final[dict[str, Trilingual]] = {
         en="Which inspection kit is required for the mounting flange of the {variant}?",
         tr="{variant} bağlantı flanşı için hangi muayene kiti gereklidir?",
         ru="Какой комплект требуется для осмотра монтажного фланца {variant}?",
+    ),
+    "flange_bolt_torque": Trilingual(
+        en="What is the mounting flange bolt torque for the {variant}?",
+        tr="{variant} için bağlantı flanşı cıvata torku nedir?",
+        ru="Какой момент затяжки болтов монтажного фланца указан для {variant}?",
+    ),
+    "mounting_foot_torque": Trilingual(
+        en="To what torque are the baseplate mounting foot bolts of the {variant} tightened?",
+        tr="{variant} taban plakası ayak cıvataları hangi torkla sıkılır?",
+        ru="Каким моментом затягиваются болты опорных лап {variant}?",
+    ),
+    "suction_strainer": Trilingual(
+        en="Which suction-side strainer element is specified for the {variant}?",
+        tr="{variant} için hangi emiş tarafı süzgeç elemanı belirtilmiştir?",
+        ru="Какой элемент всасывающего фильтра-сетки предписан для {variant}?",
+    ),
+    "breather_filter": Trilingual(
+        en="Which breather filter is fitted to the reservoir of the {variant}?",
+        tr="{variant} deposuna hangi havalandırma filtresi takılır?",
+        ru="Какой воздушный фильтр сапуна устанавливается на бак {variant}?",
+    ),
+    "shaft_seal_kit": Trilingual(
+        en="Which rotating shaft seal kit is specified for the {variant}?",
+        tr="{variant} için hangi döner mil salmastra takımı belirtilmiştir?",
+        ru="Какой комплект уплотнений вращающегося вала предписан для {variant}?",
+    ),
+    "valve_seal_kit": Trilingual(
+        en="Which control valve seal kit is specified for the {variant}?",
+        tr="{variant} için hangi kumanda valfi salmastra takımı belirtilmiştir?",
+        ru="Какой комплект уплотнений управляющего клапана предписан для {variant}?",
+    ),
+    "lubrication_interval": Trilingual(
+        en="How often must the bearings of the {variant} be regreased?",
+        tr="{variant} rulmanları ne sıklıkla greslenmelidir?",
+        ru="Как часто необходимо смазывать подшипники {variant}?",
+    ),
+    "inspection_interval": Trilingual(
+        en="How often must a scheduled inspection of the {variant} be carried out?",
+        tr="{variant} planlı muayenesi ne sıklıkla yapılmalıdır?",
+        ru="Как часто необходимо проводить плановый осмотр {variant}?",
+    ),
+    "heater_fuse": Trilingual(
+        en="What fuse rating protects the anti-condensation heater circuit of the {variant}?",
+        tr="{variant} yoğuşma önleyici ısıtıcı devresini hangi değerde sigorta korur?",
+        ru="Какой номинал предохранителя защищает цепь антиконденсатного обогревателя {variant}?",
+    ),
+    "sensor_supply_voltage": Trilingual(
+        en="What is the sensor supply rail voltage for the {variant}?",
+        tr="{variant} için sensör besleme hattı gerilimi nedir?",
+        ru="Какое напряжение шины питания датчиков указано для {variant}?",
+    ),
+    "idler_bearing": Trilingual(
+        en="Which idler shaft bearing is fitted to the {variant}?",
+        tr="{variant} üzerinde hangi avara mili rulmanı kullanılır?",
+        ru="Какой подшипник промежуточного вала устанавливается на {variant}?",
+    ),
+    "pilot_pressure_setting": Trilingual(
+        en="What is the pilot circuit pressure setting for the {variant}?",
+        tr="{variant} için pilot devre basınç ayarı nedir?",
+        ru="Какова настройка давления пилотного контура для {variant}?",
+    ),
+    "case_drain_limit": Trilingual(
+        en="What is the maximum permissible case drain pressure for the {variant}?",
+        tr="{variant} için izin verilen azami karter drenaj basıncı nedir?",
+        ru="Какое максимально допустимое давление дренажа корпуса установлено для {variant}?",
+    ),
+    "coolant_capacity": Trilingual(
+        en="How much coolant does the cooling circuit of the {variant} hold?",
+        tr="{variant} soğutma devresi ne kadar soğutma sıvısı alır?",
+        ru="Сколько охлаждающей жидкости вмещает контур охлаждения {variant}?",
+    ),
+    "retrofit_bracket_note": Trilingual(
+        en="Which retrofit mounting bracket is required for the {variant}?",
+        tr="{variant} için hangi sonradan takma montaj braketi gereklidir?",
+        ru="Какой монтажный кронштейн дооснащения требуется для {variant}?",
     ),
 }
 

@@ -243,21 +243,92 @@ def _chunk_records(documents: Sequence[BuiltDocument]) -> list[JsonDict]:
     return records
 
 
-def _leaked_documents(questions: Sequence[JsonDict], chunks: dict[str, Chunk]) -> list[str]:
-    """Documents a question of the other split depends on.
+def _leaked_documents(
+    questions: Sequence[JsonDict],
+    chunks: dict[str, Chunk],
+    documents: Sequence[JsonDict],
+) -> list[str]:
+    """Documents reachable from both splits, resolved through the references rather than the rule.
 
-    Checked through the references rather than through the family table: recomputing the split from
-    the family and comparing it with itself proves nothing, and the failure this guards against is
-    a gold chunk pointing across the split.
+    The previous version of this function could not report a leak under any corpus this generator
+    could produce, and its docstring said so while the body did the opposite. It read
+    `split_of(chunk.family_id) != record["split"]`, and `record["split"]` was itself assigned as
+    `split_of(seed.family_id)`; because every supporting chunk is looked up by the question's own
+    family id, the comparison reduced to `split_of(F) != split_of(F)`. It returned zero for
+    structural reasons, kill condition L graded that zero, and ADR-001's falsifiability clause —
+    a breach must change behaviour and a test must observe it — had nothing to observe. ADR-002
+    records it.
+
+    What follows is a real check, and it is deliberately built the way a sceptic would build it:
+    **the split label is never recomputed from the rule.** Each document collects the set of splits
+    that actually reach it, taken from the questions that cite it, and a document reached from both
+    is a leak whatever any rule says. A document whose own family says one thing while a question
+    of the other split depends on it is exactly the failure the hold-out exists to prevent, and it
+    is caught here because the two facts are compared rather than derived from one another.
+
+    Three separate leaks are reported, all as document ids:
+
+    - a document cited by questions of both splits;
+    - a document whose family's split disagrees with the split of a question citing it;
+    - a document whose family owns documents on both sides, which would mean the protected unit is
+      not the family at all.
     """
-    leaked: set[str] = set()
+    reached_by: dict[str, set[str]] = {}
     for record in questions:
-        expected = record["split"]
+        asking = str(record["split"])
         for chunk_id in record["supporting_chunk_ids"]:
-            chunk = chunks[chunk_id]
-            if split_of(chunk.family_id) != expected:
-                leaked.add(chunk.document_id)
+            chunk = chunks[str(chunk_id)]
+            reached_by.setdefault(chunk.document_id, set()).add(asking)
+
+    leaked = {document_id for document_id, splits in reached_by.items() if len(splits) > 1}
+
+    # The reference and the rule, compared rather than one derived from the other.
+    for document_id, splits in reached_by.items():
+        owning = split_of(chunks_family_of(document_id, chunks))
+        if splits != {owning}:
+            leaked.add(document_id)
+
+    # The protected unit really is the family: no family may own documents on both sides.
+    splits_per_family: dict[str, set[str]] = {}
+    for record in documents:
+        splits_per_family.setdefault(str(record["family_id"]), set()).add(str(record["split"]))
+    for family_id, splits in splits_per_family.items():
+        if len(splits) > 1:
+            leaked.update(
+                str(record["document_id"])
+                for record in documents
+                if str(record["family_id"]) == family_id
+            )
+
     return sorted(leaked)
+
+
+def chunks_family_of(document_id: str, chunks: dict[str, Chunk]) -> str:
+    """The family a document belongs to, read off its chunks rather than off the document table.
+
+    Deliberately the long way round. Reading `document["family_id"]` would take the split check
+    back to trusting the same record it is checking; resolving through the chunks means a document
+    whose chunks disagree with it about its family shows up as a leak rather than as agreement.
+    """
+    for chunk in chunks.values():
+        if chunk.document_id == document_id:
+            return chunk.family_id
+    raise KeyError(f"no chunk belongs to {document_id}; the corpus is not self-consistent")
+
+
+def _distinct(records: Sequence[JsonDict], *key: str) -> int:
+    """How many distinct pieces of *content* these records hold, ignoring the language rendering.
+
+    The reason this function exists is ADR-002. The first corpus reported 108 documents, 1,941
+    chunks, 432 questions, 132 unanswerable questions and 69 supersession edges, and cleared every
+    ADR-001 floor. Counted as distinct content it held 36, 647, 144, 44 and 23, and missed five of
+    the six floors — the supersession floor on any reading. The corpus was trilingual, and each of
+    those numbers was one fact rendered three times.
+
+    A translation of a passage is not a new passage. The artifact now reports these as the graded
+    numbers, with the per-language totals kept beside them under `*_rows` so nothing is hidden.
+    """
+    return len({tuple(str(record[field]) for field in key) for record in records})
 
 
 def _artifact(
@@ -271,6 +342,7 @@ def _artifact(
     holdout = sorted(f.family_id for f in FAMILIES if split_of(f.family_id) == HOLDOUT)
     development = sorted(f.family_id for f in FAMILIES if split_of(f.family_id) == DEVELOPMENT)
     unanswerable = [record for record in questions if not record["answerable"]]
+    superseded = [record for record in documents if record["superseded_by"]]
     return {
         "is_synthetic": True,
         "notice": _NOTICE,
@@ -279,11 +351,22 @@ def _artifact(
         "split_rule": SPLIT_RULE,
         "split_by": SPLIT_BY,
         "variants": sum(len(family.variants) for family in FAMILIES),
-        "documents": len(documents),
-        "supersession_edges": sum(1 for d in documents if d["superseded_by"]),
-        "chunks": len(chunks),
-        "questions": len(questions),
-        "unanswerable_questions": len(unanswerable),
+        # --- the graded counts: distinct content, not rows ---------------------------------------
+        "documents": _distinct(documents, "family_id", "series", "revision"),
+        "supersession_edges": _distinct(superseded, "family_id", "revision"),
+        "chunks": _distinct(chunks, "family_id", "series", "revision", "section"),
+        "questions": _distinct(questions, "parallel_group"),
+        "unanswerable_questions": _distinct(unanswerable, "parallel_group"),
+        # --- the same corpus counted as rows, one per language -----------------------------------
+        "counted_by": (
+            "distinct content; a translation of a passage is not a second passage. The *_rows "
+            "figures below count one row per language rendering."
+        ),
+        "document_rows": len(documents),
+        "supersession_edge_rows": len(superseded),
+        "chunk_rows": len(chunks),
+        "question_rows": len(questions),
+        "unanswerable_question_rows": len(unanswerable),
         "languages": [language.value for language in Language],
         "documents_in_both_splits": len(leaked),
         "leaked_documents": list(leaked),
@@ -358,7 +441,7 @@ def build() -> GeneratedCorpus:
     by_kind = Counter(
         str(record["unanswerable_kind"]) for record in questions if not record["answerable"]
     )
-    leaked = _leaked_documents(questions, by_id)
+    leaked = _leaked_documents(questions, by_id, documents)
     artifact = _artifact(
         documents=documents,
         chunks=chunks,

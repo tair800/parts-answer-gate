@@ -66,17 +66,22 @@ UNANSWERABLE_KINDS: Final = (
     "malformed_part_number",
 )
 
-_TOPICS_PER_VARIANT = 5
+_TOPICS_PER_VARIANT = 8
 
-#: Per-kind counts. Sized so the trilingual set clears ADR-001's floor of 90 unanswerable questions
-#: with margin, and so no kind is represented by a token example or two.
+#: Per-kind counts, sized against ADR-001's floor of 90 unanswerable questions counted as
+#: **distinct** questions.
+#:
+#: The first corpus sized these so that the *trilingual* set cleared the floor — 6 per kind gives
+#: 44 distinct negatives rendered as 132 rows, and 132 was the number published. A Turkish
+#: translation of a question is not a second question, and ADR-002 records the correction. Fifteen
+#: per kind clears the floor on distinct content with the margin the floor was meant to have.
 _NEGATIVES_PER_KIND: Final = {
-    "absent_specification": 6,
-    "attribute_absent_for_existing_product": 6,
-    "near_match_different_identifier": 6,
-    "superseded_without_replacement_asked": 6,
-    "different_product_family": 6,
-    "malformed_part_number": 6,
+    "absent_specification": 15,
+    "attribute_absent_for_existing_product": 15,
+    "near_match_different_identifier": 15,
+    "superseded_without_replacement_asked": 15,
+    "different_product_family": 15,
+    "malformed_part_number": 15,
 }
 
 
