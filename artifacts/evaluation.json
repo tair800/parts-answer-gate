@@ -1,0 +1,279 @@
+{
+  "arms": [
+    "system",
+    "bm25_only",
+    "dense_only",
+    "hybrid_without_effectivity",
+    "ungated_rag"
+  ],
+  "development": {
+    "answering": {
+      "abstention_rate": 0.2695883134130146,
+      "attribution": {
+        "gate": 0,
+        "generation": 0,
+        "none": 753,
+        "retrieval": 0
+      },
+      "coverage": 0.150066401062417,
+      "coverage_curve": [
+        {
+          "answered": 170,
+          "coverage": 0.22576361221779548,
+          "threshold": 0.0,
+          "wrong": 57,
+          "wrong_answer_rate": 0.3352941176470588
+        },
+        {
+          "answered": 170,
+          "coverage": 0.22576361221779548,
+          "threshold": 0.1,
+          "wrong": 57,
+          "wrong_answer_rate": 0.3352941176470588
+        },
+        {
+          "answered": 166,
+          "coverage": 0.2204515272244356,
+          "threshold": 0.2,
+          "wrong": 53,
+          "wrong_answer_rate": 0.3192771084337349
+        },
+        {
+          "answered": 154,
+          "coverage": 0.20451527224435592,
+          "threshold": 0.3,
+          "wrong": 41,
+          "wrong_answer_rate": 0.2662337662337662
+        },
+        {
+          "answered": 148,
+          "coverage": 0.19654714475431606,
+          "threshold": 0.4,
+          "wrong": 35,
+          "wrong_answer_rate": 0.23648648648648649
+        },
+        {
+          "answered": 136,
+          "coverage": 0.1806108897742364,
+          "threshold": 0.5,
+          "wrong": 23,
+          "wrong_answer_rate": 0.16911764705882354
+        },
+        {
+          "answered": 113,
+          "coverage": 0.150066401062417,
+          "threshold": 0.6,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 100,
+          "coverage": 0.13280212483399734,
+          "threshold": 0.7,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 97,
+          "coverage": 0.12881806108897742,
+          "threshold": 0.8,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 26,
+          "coverage": 0.034528552456839307,
+          "threshold": 0.9,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        }
+      ],
+      "definition": "revision-incorrect or variant-incorrect",
+      "review_rate": 0.5803452855245684,
+      "shipped_threshold": 0.6,
+      "supplementary": {
+        "declared_after_holdout_scoring": true,
+        "gated_answers": 113,
+        "gated_unsupported_answer_rate": 0.07079646017699115,
+        "replaces_kill_condition": null,
+        "ungated_answers": 753,
+        "ungated_unsupported_answer_rate": 0.29880478087649404
+      },
+      "ungated_wrong_answer_rate": 0.05976095617529881,
+      "wrong_answer_rate": 0.0,
+      "wrong_examples": []
+    },
+    "retrieval": {
+      "baselines": {
+        "bm25_only": {
+          "mrr": 0.7777777777777778,
+          "ndcg_at_10": 0.7827827604843078,
+          "recall_at_10": 0.7973484848484849
+        },
+        "dense_only": {
+          "mrr": 0.749542297979798,
+          "ndcg_at_10": 0.7631395839970514,
+          "recall_at_10": 0.803030303030303
+        },
+        "hybrid_without_effectivity": {
+          "mrr": 0.4261746933621933,
+          "ndcg_at_10": 0.5516286987664796,
+          "recall_at_10": 0.9450757575757576
+        },
+        "ungated_rag": {
+          "mrr": 0.7831439393939394,
+          "ndcg_at_10": 0.7868635346658558,
+          "recall_at_10": 0.7973484848484849
+        }
+      },
+      "system": {
+        "mrr": 0.7831439393939394,
+        "ndcg_at_10": 0.7868635346658558,
+        "recall_at_10": 0.7973484848484849,
+        "scored": 528,
+        "skipped_without_relevant": 225
+      }
+    }
+  },
+  "holdout": {
+    "answering": {
+      "abstention_rate": 0.25252525252525254,
+      "attribution": {
+        "gate": 0,
+        "generation": 0,
+        "none": 297,
+        "retrieval": 0
+      },
+      "coverage": 0.14814814814814814,
+      "coverage_curve": [
+        {
+          "answered": 68,
+          "coverage": 0.22895622895622897,
+          "threshold": 0.0,
+          "wrong": 24,
+          "wrong_answer_rate": 0.35294117647058826
+        },
+        {
+          "answered": 68,
+          "coverage": 0.22895622895622897,
+          "threshold": 0.1,
+          "wrong": 24,
+          "wrong_answer_rate": 0.35294117647058826
+        },
+        {
+          "answered": 65,
+          "coverage": 0.21885521885521886,
+          "threshold": 0.2,
+          "wrong": 21,
+          "wrong_answer_rate": 0.3230769230769231
+        },
+        {
+          "answered": 61,
+          "coverage": 0.2053872053872054,
+          "threshold": 0.3,
+          "wrong": 17,
+          "wrong_answer_rate": 0.2786885245901639
+        },
+        {
+          "answered": 56,
+          "coverage": 0.18855218855218855,
+          "threshold": 0.4,
+          "wrong": 12,
+          "wrong_answer_rate": 0.21428571428571427
+        },
+        {
+          "answered": 51,
+          "coverage": 0.1717171717171717,
+          "threshold": 0.5,
+          "wrong": 7,
+          "wrong_answer_rate": 0.13725490196078433
+        },
+        {
+          "answered": 44,
+          "coverage": 0.14814814814814814,
+          "threshold": 0.6,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 36,
+          "coverage": 0.12121212121212122,
+          "threshold": 0.7,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 36,
+          "coverage": 0.12121212121212122,
+          "threshold": 0.8,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 8,
+          "coverage": 0.026936026936026935,
+          "threshold": 0.9,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        }
+      ],
+      "definition": "revision-incorrect or variant-incorrect",
+      "review_rate": 0.5993265993265994,
+      "shipped_threshold": 0.6,
+      "supplementary": {
+        "declared_after_holdout_scoring": true,
+        "gated_answers": 44,
+        "gated_unsupported_answer_rate": 0.045454545454545456,
+        "replaces_kill_condition": null,
+        "ungated_answers": 297,
+        "ungated_unsupported_answer_rate": 0.2727272727272727
+      },
+      "ungated_wrong_answer_rate": 0.0,
+      "wrong_answer_rate": 0.0,
+      "wrong_examples": []
+    },
+    "retrieval": {
+      "baselines": {
+        "bm25_only": {
+          "mrr": 0.9066358024691359,
+          "ndcg_at_10": 0.9115406910218259,
+          "recall_at_10": 0.9259259259259259
+        },
+        "dense_only": {
+          "mrr": 0.8597993827160494,
+          "ndcg_at_10": 0.8789039627653051,
+          "recall_at_10": 0.9351851851851852
+        },
+        "hybrid_without_effectivity": {
+          "mrr": 0.39606114050558494,
+          "ndcg_at_10": 0.5203090772514349,
+          "recall_at_10": 0.9166666666666666
+        },
+        "ungated_rag": {
+          "mrr": 0.9097222222222222,
+          "ndcg_at_10": 0.9139653160879639,
+          "recall_at_10": 0.9259259259259259
+        }
+      },
+      "system": {
+        "mrr": 0.9097222222222222,
+        "ndcg_at_10": 0.9139653160879639,
+        "recall_at_10": 0.9259259259259259,
+        "scored": 216,
+        "skipped_without_relevant": 81
+      }
+    }
+  },
+  "kill_conditions": [
+    "F",
+    "G",
+    "H"
+  ],
+  "provenance": {
+    "commit": "unknown",
+    "corpus_is_synthetic": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "scored_once": "the hold-out membership was materialised into artifacts/holdout.json and committed before this file first existed; its position in git history is the evidence"
+}

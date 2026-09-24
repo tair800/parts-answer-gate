@@ -1,0 +1,21 @@
+{
+  "as_of_dates_replayed": 4,
+  "candidate_set_constrained_in_sql": true,
+  "filter_applied": "before_ranking",
+  "kill_conditions": [
+    "A",
+    "B"
+  ],
+  "method": "each question is replayed at every as-of date and every returned chunk is checked against the corpus's own validity interval and variant, never against anything the retriever reported about itself",
+  "provenance": {
+    "commit": "unknown",
+    "corpus_is_synthetic": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "queries": 480,
+  "superseded_chunks_returned": 0,
+  "superseded_examples": [],
+  "wrong_variant_chunks_returned": 0,
+  "wrong_variant_examples": []
+}

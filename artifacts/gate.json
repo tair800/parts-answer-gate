@@ -1,0 +1,99 @@
+{
+  "abstention_rate_on_unanswerable": 0.9673202614379085,
+  "answered_without_support": 10,
+  "article_50_note": "the disclosure is a field on the response model with a minimum length, and the model is frozen, so it cannot be blanked by a caller or stripped by middleware. It is a transparency obligation and nothing else is asserted",
+  "decision_precedes_generation": true,
+  "kill_conditions": [
+    "E",
+    "I"
+  ],
+  "model_can_override_gate": false,
+  "provenance": {
+    "commit": "unknown",
+    "corpus_is_synthetic": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "responses_checked": 1050,
+  "responses_missing_ai_disclosure": 0,
+  "unanswerable_kinds": {
+    "absent_specification": {
+      "rate": 1.0,
+      "refused": 45,
+      "total": 45
+    },
+    "attribute_absent_for_existing_product": {
+      "rate": 0.8888888888888888,
+      "refused": 40,
+      "total": 45
+    },
+    "contradictory_sources": {
+      "rate": 1.0,
+      "refused": 36,
+      "total": 36
+    },
+    "different_product_family": {
+      "rate": 1.0,
+      "refused": 45,
+      "total": 45
+    },
+    "malformed_part_number": {
+      "rate": 0.8888888888888888,
+      "refused": 40,
+      "total": 45
+    },
+    "near_match_different_identifier": {
+      "rate": 1.0,
+      "refused": 45,
+      "total": 45
+    },
+    "superseded_without_replacement_asked": {
+      "rate": 1.0,
+      "refused": 45,
+      "total": 45
+    }
+  },
+  "unanswerable_questions": 306,
+  "unsupported_examples": [
+    {
+      "question_id": "q-neg-malformed-1-ru",
+      "text": "\u041d\u0430 \u043a\u043e\u0440\u043f\u0443\u0441\u0435 CT4-25E \u0432\u044b\u0431\u0438\u0442 \u043d\u043e\u043c\u0435\u0440 \u0434\u0435\u0442\u0430\u043b\u0438 YJ-3068-JX4Z. \u041a\u0430\u043a\u0430\u044f \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f \u043a \u043d\u0435\u0439 \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0441\u044f?"
+    },
+    {
+      "question_id": "q-neg-malformed-9-ru",
+      "text": "\u041d\u0430 \u043a\u043e\u0440\u043f\u0443\u0441\u0435 XP-400H \u0432\u044b\u0431\u0438\u0442 \u043d\u043e\u043c\u0435\u0440 \u0434\u0435\u0442\u0430\u043b\u0438 UZ-7950-4X4Z. \u041a\u0430\u043a\u0430\u044f \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f \u043a \u043d\u0435\u0439 \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0441\u044f?"
+    },
+    {
+      "question_id": "q-neg-attribute-1-tr",
+      "text": "QS6-92 i\u00e7in pilot devre bas\u0131n\u00e7 ayar\u0131 nedir?"
+    },
+    {
+      "question_id": "q-neg-attribute-2-tr",
+      "text": "AX7-160 kumanda devresini hangi de\u011ferde sigorta korur?"
+    },
+    {
+      "question_id": "q-neg-attribute-8-tr",
+      "text": "LG1-18 kumanda devresini hangi de\u011ferde sigorta korur?"
+    },
+    {
+      "question_id": "q-neg-attribute-10-tr",
+      "text": "RM2-45D kumanda devresini hangi de\u011ferde sigorta korur?"
+    },
+    {
+      "question_id": "q-neg-attribute-10-ru",
+      "text": "\u041a\u0430\u043a\u043e\u0439 \u043d\u043e\u043c\u0438\u043d\u0430\u043b \u043f\u0440\u0435\u0434\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u0435\u043b\u044f \u0437\u0430\u0449\u0438\u0449\u0430\u0435\u0442 \u0446\u0435\u043f\u044c \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u044f RM2-45D?"
+    },
+    {
+      "question_id": "q-neg-malformed-2-ru",
+      "text": "\u041d\u0430 \u043a\u043e\u0440\u043f\u0443\u0441\u0435 QS6-92 \u0432\u044b\u0431\u0438\u0442 \u043d\u043e\u043c\u0435\u0440 \u0434\u0435\u0442\u0430\u043b\u0438 nf-9825-ed9. \u041a\u0430\u043a\u0430\u044f \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f \u043a \u043d\u0435\u0439 \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0441\u044f?"
+    },
+    {
+      "question_id": "q-neg-malformed-5-ru",
+      "text": "\u041d\u0430 \u043a\u043e\u0440\u043f\u0443\u0441\u0435 RM2-45 \u0432\u044b\u0431\u0438\u0442 \u043d\u043e\u043c\u0435\u0440 \u0434\u0435\u0442\u0430\u043b\u0438 DF-9318-U6X4Z. \u041a\u0430\u043a\u0430\u044f \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f \u043a \u043d\u0435\u0439 \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0441\u044f?"
+    },
+    {
+      "question_id": "q-neg-malformed-13-ru",
+      "text": "\u041d\u0430 \u043a\u043e\u0440\u043f\u0443\u0441\u0435 BD6-320 \u0432\u044b\u0431\u0438\u0442 \u043d\u043e\u043c\u0435\u0440 \u0434\u0435\u0442\u0430\u043b\u0438 EB-0261-HX4Z. \u041a\u0430\u043a\u0430\u044f \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f \u043a \u043d\u0435\u0439 \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0441\u044f?"
+    }
+  ]
+}

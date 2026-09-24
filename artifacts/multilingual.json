@@ -1,0 +1,49 @@
+{
+  "ablated_fix": {
+    "measured_effect": "not measured",
+    "name": "multilingual encoder shared across all three languages",
+    "what_it_ablates": "the alternative is a per-language lexical index with no cross-lingual vector signal, which is what the ablated arm measures"
+  },
+  "by_language": {
+    "en": {
+      "abstention_rate": 0.1717171717171717,
+      "answer_correctness": 1.0,
+      "coverage": 0.1717171717171717,
+      "end_to_end_correctness": 0.1717171717171717,
+      "questions": 99,
+      "retrieval_recall_at_10": 0.9444444444444444
+    },
+    "ru": {
+      "abstention_rate": 0.32323232323232326,
+      "answer_correctness": 1.0,
+      "coverage": 0.09090909090909091,
+      "end_to_end_correctness": 0.09090909090909091,
+      "questions": 99,
+      "retrieval_recall_at_10": 0.9444444444444444
+    },
+    "tr": {
+      "abstention_rate": 0.26262626262626265,
+      "answer_correctness": 1.0,
+      "coverage": 0.18181818181818182,
+      "end_to_end_correctness": 0.18181818181818182,
+      "questions": 99,
+      "retrieval_recall_at_10": 0.8888888888888888
+    }
+  },
+  "corpus_is_synthetic_parallel_text": true,
+  "judge_calibration": {
+    "performed": false,
+    "why": "no native speaker of Turkish or Russian reviewed this corpus. The scores above are computed against construction metadata \u2014 the generator knows which passage supports which question because it wrote both \u2014 so they measure retrieval and gating over synthetic parallel text. They do not establish that the Turkish reads like Turkish, and no LLM judge was used, so there is no judge to calibrate."
+  },
+  "languages": [
+    "en",
+    "ru",
+    "tr"
+  ],
+  "provenance": {
+    "commit": "unknown",
+    "corpus_is_synthetic": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  }
+}

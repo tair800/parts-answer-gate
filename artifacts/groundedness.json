@@ -1,0 +1,20 @@
+{
+  "answers_checked": 157,
+  "citations_checked": 785,
+  "kill_conditions": [
+    "C",
+    "D"
+  ],
+  "method": "exact span located in the source document by offset",
+  "note": "the shipped answerer is extractive, so it returns spans verbatim and cannot construct a part number the evidence lacks. The check is run anyway: a guarantee that holds only because of which arm is plugged in is a property of today's arm",
+  "provenance": {
+    "commit": "unknown",
+    "corpus_is_synthetic": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "unfaithful_citations": 0,
+  "unfaithful_examples": [],
+  "ungrounded_examples": [],
+  "ungrounded_part_numbers": 0
+}
