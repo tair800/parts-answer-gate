@@ -81,6 +81,17 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      qdrant:
+        # The second backend `storage_comparison.json` measures against. Local, like the one in
+        # docker-compose.yml, and the artifact says so in its own body: nothing in this repository
+        # has ever reached Qdrant Cloud.
+        image: qdrant/qdrant:v1.12.4
+        ports: ["6333:6333"]
+        options: >-
+          --health-cmd "bash -c ':> /dev/tcp/127.0.0.1/6333'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -109,7 +120,17 @@ jobs:
       - name: Prove the corpus is reproducible
         run: uv run python scripts/generate_corpus.py --verify-determinism
 
+      - name: Embed the corpus into pgvector
+        # This step was missing, and its absence meant the lane below ran the whole evaluation
+        # against an empty table: recall over no candidates, a plan over no rows, and a kill test
+        # graded on numbers that described nothing. `make evidence` had the step; CI did not.
+        run: uv run python scripts/seed_index.py
+
       - name: Build the evidence
+        # Produces pgvector.json, index_lifecycle.json and storage_comparison.json as part of the
+        # ordinary build. For the whole of the first iteration those three existed only as helper
+        # functions with no caller, and the numbers that were quoted for them came from scripts run
+        # by hand. Evidence only a person can regenerate is not evidence.
         run: uv run python scripts/build_artifacts.py
 
       - name: Grade it against the predeclared thresholds
@@ -147,6 +168,17 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      qdrant:
+        # The second backend `storage_comparison.json` measures against. Local, like the one in
+        # docker-compose.yml, and the artifact says so in its own body: nothing in this repository
+        # has ever reached Qdrant Cloud.
+        image: qdrant/qdrant:v1.12.4
+        ports: ["6333:6333"]
+        options: >-
+          --health-cmd "bash -c ':> /dev/tcp/127.0.0.1/6333'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -166,10 +198,14 @@ jobs:
         run: |
           uv run alembic upgrade head
           uv run python scripts/generate_corpus.py
+          uv run python scripts/seed_index.py
           uv run python scripts/build_artifacts.py
 
       - name: Plant every breach and check each is caught
         run: uv run python scripts/plant_breaches.py
+
+      - name: Grade the breach report
+        run: uv run pytest tests/test_falsifiability.py -q
 
       - name: No planted breach survived
         # Scoped to the paths a breach can be planted in. The step above rebuilds artifacts, whose

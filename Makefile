@@ -25,8 +25,8 @@ help:
 setup: ## install dependencies into .venv
 	uv sync
 
-db: ## start PostgreSQL with pgvector on 127.0.0.1:15440
-	docker compose up -d postgres
+db: ## start PostgreSQL with pgvector and the local Qdrant the comparison measures against
+	docker compose up -d postgres qdrant
 
 db-down: ## stop it
 	docker compose down
@@ -71,7 +71,7 @@ console: ## serve the Answer Gate Lab
 screenshots: ## capture the console's screens into docs/screenshots/
 	$(PY) scripts/screenshots.py
 
-evidence: corpus determinism migrate index artifacts test ## the full chain CI runs
+evidence: corpus determinism migrate index artifacts breaches test ## the full chain CI runs
 	@echo
 	@echo "evidence rebuilt and graded against the predeclared thresholds"
 
