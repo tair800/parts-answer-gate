@@ -9,8 +9,12 @@ system failed them.**
 > against the hold-out after it was scored, and the project is closed here rather than adjusted
 > until it cleared its own bar.
 
-**Live:** <https://parts-answer-gate.onrender.com> — real retrieval against a real pgvector index,
-free tier, read-only, no model key.
+**Live:** <https://parts-answer-gate.onrender.com> — real retrieval against a real pgvector index on
+a free Neon PostgreSQL, read-only, no model key. Seven retrieval claims are checked against the
+running service by `scripts/live_proof.py` and recorded in `artifacts/live_retrieval.json`; the
+deployed database is read out of its own `pg_catalog` into `artifacts/live_pgvector.json`. **Use the
+example links**: the instance serves query vectors precomputed at build time, so it answers every
+question the corpus contains and tells you plainly when a question is not one of them.
 
 ---
 
@@ -21,7 +25,7 @@ second and most of the deployment is the first.
 
 | | |
 |---|---|
-| **The software works, and is live.** | Ask a question at the link above and the answer comes from a **real hybrid retrieval over 12,420 passages in PostgreSQL 16 with pgvector 0.8.0**, filtered by variant, serial, validity and knowledge time **in SQL before anything is ranked**, gated by seven deterministic non-model signals, and answered with verbatim spans carrying character offsets into their source. The bitemporal axis works: the same question at the same date returns different documents depending on the knowledge date you ask about. |
+| **The software works, and is live.** | Ask a question at the link above and the answer comes from a **real hybrid retrieval over 12,420 passages in PostgreSQL 16 with pgvector 0.8.0**, filtered by variant, serial, validity and knowledge time **in SQL before anything is ranked**, gated by seven deterministic non-model signals, and answered with verbatim spans carrying character offsets into their source. The bitemporal axis works, and you can check it in two clicks: the same question at the same date returns a different document depending on the knowledge date you ask about — 9 bar pinned to 2021, 8 bar under current knowledge. |
 | **The experiment failed, and that is the published result.** | Twelve kill conditions were committed before any source file existed. **E, F, I and K do not hold. G passes near-vacuously.** Nothing was tuned against the hold-out after it was scored, no threshold was lowered, nothing was marked `xfail`, and the project is closed here rather than adjusted until it cleared its own bar. |
 
 Working software and a failed hypothesis are not in tension. The system does what it was built to
@@ -290,6 +294,12 @@ time. `gate.term_is_covered` stands in for a stemmer with a bidirectional prefix
 docstring says it errs towards covering — and a question about a real machine shares enough terms
 with that machine's *other* specifications to clear the coverage floor. **The failures are
 concentrated in Turkish and Russian**, which is what the per-language table above shows.
+
+You can see this one fail yourself. `artifacts/live_retrieval.json` ends with the deployed service
+being asked a question of exactly this kind — an attribute the machine does not have — and
+answering it at 0.60 term coverage instead of abstaining. It is recorded there and not asserted:
+pinning the case to "answers" would make the failure look intended, and pinning it to "abstains"
+would fail a check for something this project has already reported and deliberately not fixed.
 
 **I — abstention on the unanswerable set falls below the 0.90 floor.** Same mechanism as E.
 
