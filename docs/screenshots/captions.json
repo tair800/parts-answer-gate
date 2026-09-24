@@ -1,12 +1,15 @@
 {
-  "01-ask.png": "The console before a question is asked.",
-  "02-answered.png": "An answered question: the extracted span, the citation it came from with its character offset, and every gate signal that permitted it.",
-  "03-refused.png": "A question the corpus cannot support, and the system withholds. The kind is absent_specification. This is the screen the project exists for.",
-  "04-evidence.png": "Every measured number, the twelve kill conditions with their verdicts, and the release-gate banner that does not go away.",
-  "05-failures.png": "The failure cases, published rather than hidden.",
-  "06-provenance.png": "Corpus provenance, the hold-out freeze digest, and the synthetic notice.",
-  "07-turkish.png": "The same question in Turkish -- the corpus's own parallel rendering, not the English text with a language filter -- against the same index.",
-  "10-unsupported-answer-failure.png": "**Kill condition E failing, live.** The corpus contains no passage that answers this (absent_specification), and the gate answers it anyway. Every one of these failures is Turkish or Russian: term coverage is computed with a bidirectional prefix match that errs towards covering.",
-  "08-knowledge-now.png": "A past date asked with today's knowledge. The revision in force on that date was later corrected, and it is the correction that answers.",
-  "09-knowledge-then.png": "The same question, the same date, pinned to what was known at the time: the answer is 9 bar again, because a later correction does not rewrite what the technician had in front of them. Two axes, one query."
+  "captured_from": "https://parts-answer-gate.onrender.com",
+  "captions": {
+    "01-ask.png": "The console before a question is asked.",
+    "02-answered.png": "An answered question: the extracted span, the citation it came from with its character offset, and every gate signal that permitted it.",
+    "03-refused.png": "A question the corpus cannot support, and the system withholds. The kind is absent_specification. This is the screen the project exists for.",
+    "04-evidence.png": "Every measured number, the twelve kill conditions with their verdicts, and the release-gate banner that does not go away.",
+    "05-failures.png": "The failure cases, published rather than hidden.",
+    "06-provenance.png": "Corpus provenance, the hold-out freeze digest, and the synthetic notice.",
+    "07-turkish.png": "The same question in Turkish -- the corpus's own parallel rendering, not the English text with a language filter -- against the same index.",
+    "10-unsupported-answer-failure.png": "**Kill condition E failing, live.** The corpus contains no passage that answers this (absent_specification), and the gate answers it anyway. Every one of these failures is Turkish or Russian: term coverage is computed with a bidirectional prefix match that errs towards covering.",
+    "08-knowledge-now.png": "A past date asked with today's knowledge. The revision in force on that date was later corrected, and it is the correction that answers.",
+    "09-knowledge-then.png": "The same question, the same date, pinned to what was known at the time: the answer is 9 bar again, because a later correction does not rewrite what the technician had in front of them. Two axes, one query."
+  }
 }
