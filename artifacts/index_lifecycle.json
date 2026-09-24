@@ -5,11 +5,11 @@
   "chunks_total": 12420,
   "chunks_unchanged_left_alone": 12380,
   "cost_basis": "local CPU ONNX inference; no metered API is called, so the cost of a re-embed is wall-clock time and nothing is billed. No monetary figure is published because none was measured.",
-  "embedding_seconds": 2.901,
+  "embedding_seconds": 1.0403,
   "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
   "probe": "the sampled chunks' text was modified, re-embedded through the production loader, measured, and rolled back; the corpus is unchanged",
   "provenance": {
-    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "commit": "1dd580cc8c8cf3548148f34f9ce3eabb05b4fb73",
     "corpus_is_synthetic": true,
     "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
     "holdout_questions": 312,
@@ -17,9 +17,9 @@
     "python": "3.12.13"
   },
   "rolled_back": true,
-  "seconds_per_re_embedded_chunk": 0.07252,
+  "seconds_per_re_embedded_chunk": 0.02601,
   "staleness_definition": "seconds between a chunk's new text being handed to the loader (content_changed_at) and its replacement vector existing (embedded_at), worst case over the changed chunks",
-  "staleness_seconds": 2.928725,
-  "staleness_seconds_mean": 2.928725,
-  "write_seconds": 0.4113
+  "staleness_seconds": 1.048498,
+  "staleness_seconds_mean": 1.048498,
+  "write_seconds": 0.157
 }

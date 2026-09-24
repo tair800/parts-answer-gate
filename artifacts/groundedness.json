@@ -8,7 +8,7 @@
   "method": "exact span located in the source document by offset",
   "note": "the shipped answerer is extractive, so it returns spans verbatim and cannot construct a part number the evidence lacks. The check is run anyway: a guarantee that holds only because of which arm is plugged in is a property of today's arm",
   "provenance": {
-    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "commit": "1dd580cc8c8cf3548148f34f9ce3eabb05b4fb73",
     "corpus_is_synthetic": true,
     "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
     "holdout_questions": 312,

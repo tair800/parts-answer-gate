@@ -541,7 +541,7 @@ withholds but "abstention" is the lenient reading of it.
 **K — the query plan does not mention a vector index.** pgvector 0.8.6 is installed, the column is a
 real `vector`, and the executed statement uses `<=>` — but the effectivity filter has already cut
 the candidate set to **21 rows**, for which PostgreSQL correctly prefers a sequential scan. Forcing
-the ANN plan measures **29.2ms against the planner's 3.1ms**. The criterion demanded an index scan
+the ANN plan measures **5.6 ms against the planner's 3.1 ms**. The criterion demanded an index scan
 on a query that should not have one, and the planner is right.
 
 ### G passes, and the pass is near-vacuous

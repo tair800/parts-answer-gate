@@ -132,9 +132,7 @@ def _variants(session: Session) -> list[str]:
     return [row for row in rows if row]
 
 
-def _with_verdicts(
-    rows: list[dict[str, str]], gate_report: dict[str, Any]
-) -> list[dict[str, str]]:
+def _with_verdicts(rows: list[dict[str, str]], gate_report: dict[str, Any]) -> list[dict[str, str]]:
     """Attach each condition's verdict, taken from `artifacts/release_gate.json`.
 
     From the artifact rather than recomputed here, because the verdict is the graded test's own

@@ -98,7 +98,7 @@ KILL_CONDITIONS: tuple[tuple[str, str, str], ...] = (
 #: Annotations that no test can produce, because they are judgements about what a test *means*.
 #: Each is argued in DECISIONS.md and each makes a result weaker than it looks, never stronger.
 CAVEATS: dict[str, str] = {
-    "G": "**vacuous** — see below",
+    "G": "**near-vacuous** — see below",
 }
 
 
@@ -179,12 +179,14 @@ def block() -> str:
         lines.append(f"| **{letter}** | {description} | {mark}{' · ' + caveat if caveat else ''} |")
     lines += [
         "",
-        "**G passes and the pass is worth nothing.** The effectivity predicate runs *before* the "
-        "gate and constrains family, variant and validity in SQL; every hold-out question names a "
-        "variant; every variant belongs to exactly one family. So no answer this system can give "
-        "is capable of being revision- or variant-incorrect, G's numerator is empty by "
-        "construction, and **G cannot tell this system apart from a broken one**. It is reported "
-        "as PASS because that is what it measured. ADR-003 has the argument.",
+        "**G passes, and the pass is near-vacuous.** For the 297 hold-out questions that name a "
+        "variant — 297 of 312 — the numerator is empty by construction: the effectivity predicate "
+        "excludes revision- and variant-incorrect passages *upstream of the gate*, so no answer "
+        "the system can give for those is **capable** of being wrong in either sense. The measured "
+        "rate is a single wrong answer, and it comes entirely from the 15 questions about a "
+        "product family the corpus does not contain, where the filter has nothing to constrain. G "
+        "measures the gate only on the class of question the filter cannot help with. ADR-004 has "
+        "the argument.",
         "",
     ]
 

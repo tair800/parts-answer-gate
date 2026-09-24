@@ -68,7 +68,7 @@ DISCLOSED_FAILURES: dict[str, str] = {
         "the query plan does not mention a vector index. pgvector 0.8.6 is installed, the column "
         "is a real `vector`, and the executed statement uses `<=>` -- but the effectivity filter "
         "has already reduced the candidate set to 21 rows, for which PostgreSQL correctly prefers "
-        "a sequential scan: forcing the ANN plan measures 29.2ms against the planner's 3.1ms. The "
+        "a sequential scan: forcing the ANN plan measures 5.6ms against the planner's 3.1ms. The "
         "criterion asked for an index scan on a query that should not have one"
     ),
 }

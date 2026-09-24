@@ -65,7 +65,7 @@
       "description": "vector retrieval executes through pgvector",
       "verdict": "FAIL",
       "vacuous": false,
-      "why": "the query plan does not mention a vector index. pgvector 0.8.6 is installed, the column is a real `vector`, and the executed statement uses `<=>` -- but the effectivity filter has already reduced the candidate set to 21 rows, for which PostgreSQL correctly prefers a sequential scan: forcing the ANN plan measures 29.2ms against the planner's 3.1ms. The criterion asked for an index scan on a query that should not have one"
+      "why": "the query plan does not mention a vector index. pgvector 0.8.6 is installed, the column is a real `vector`, and the executed statement uses `<=>` -- but the effectivity filter has already reduced the candidate set to 21 rows, for which PostgreSQL correctly prefers a sequential scan: forcing the ANN plan measures 5.6ms against the planner's 3.1ms. The criterion asked for an index scan on a query that should not have one"
     },
     "L": {
       "description": "a document appears in both splits",
