@@ -54,6 +54,7 @@ __all__ = [
     "compute_signals",
     "content_terms",
     "decide",
+    "subject_of",
     "supporting_chunks",
     "term_is_covered",
     "thresholds_at",
@@ -213,6 +214,12 @@ _STOPWORDS: Final[dict[Language, frozenset[str]]] = {
 #: corpus are always folded the same way.
 _COMBINING_DOT_ABOVE: Final[str] = "̇"
 
+#: A section label as the corpus writes them: `3.12` in a manual, `B.2` in a bulletin. Matched
+#: strictly so that an ordinary sentence containing a full stop is not mistaken for a heading —
+#: "Use only the AB-1234-C kit. A lower grade will not hold" would otherwise yield the subject
+#: "a lower grade will not hold".
+_SECTION_LABEL: Final = re.compile(r"[A-Z]?\d+(?:\.\d+)*")
+
 
 def _fold(text: str) -> str:
     return text.casefold().replace(_COMBINING_DOT_ABOVE, "")
@@ -340,20 +347,62 @@ def _measurements(text: str) -> dict[str, frozenset[str]]:
     return {quantity: frozenset(values) for quantity, values in found.items()}
 
 
+def subject_of(text: str) -> str | None:
+    """What a passage is about, taken from its own heading line, or `None` when it has none.
+
+    Every passage in this corpus opens `"<section>. <heading> — <variant>"`, and the heading is the
+    name of the specification the passage states. It is the closest thing to a quantity identifier
+    that exists on a `Chunk` without adding a field to the schema, and it is exactly what two
+    passages must share before their numbers can disagree about anything.
+
+    `None` for a passage with no such heading, and `None` deliberately **matches everything** where
+    this is used. The alternative — treating an unheaded passage as its own subject — would make it
+    incapable of conflicting with anything, and that is the wrong direction to be wrong in: a
+    conflict the gate misses is an answer a technician acts on, while a conflict it invents costs a
+    person a look at two passages. `REVIEW` withholds either way.
+    """
+    first_line = text.split("\n", 1)[0]
+    section, separator, remainder = first_line.partition(". ")
+    if not separator or not _SECTION_LABEL.fullmatch(section.strip()):
+        return None
+    heading, _, _variant = remainder.partition(" — ")
+    heading = heading.strip()
+    return _fold(heading) if heading else None
+
+
 def _conflicting_evidence(chunks: Sequence[RetrievedChunk]) -> bool:
     """Two supporting passages that state different values for the same quantity.
 
-    Detected on units rather than on prose: if one bulletin says 48 Nm and another says 52 Nm, the
-    technician has a decision to make and the system has no business picking one. Chunks whose
-    value sets overlap are not in conflict — a passage listing several torques and a passage
-    listing one of them agree about that one.
+    If one bulletin says 48 Nm and another says 52 Nm *for the same specification*, the technician
+    has a decision to make and the system has no business picking one. Chunks whose value sets
+    overlap are not in conflict — a passage listing several torques and a passage listing one of
+    them agree about that one.
+
+    **Grouped by subject as well as by unit**, and that pairing is the whole correctness of this
+    signal. An earlier version compared by unit alone, which was right only while the corpus had
+    exactly one topic per unit. The second corpus has three torque specifications — drive coupling,
+    mounting flange, baseplate foot — and a single manual page therefore states three different
+    torques for three different things. Compared by unit, that is a contradiction; compared by
+    subject, it is a manual. The docstring above said "the same quantity" throughout, so this is the
+    code being brought up to the definition it already claimed, not a change of definition. ADR-003.
 
     An LLM-judged contradiction check was rejected outright. ADR-001 requires every gate signal
     to be computable without a model, or the gate becomes a thing a model can talk past.
     """
-    per_chunk = [_measurements(chunk.chunk.text) for chunk in chunks]
-    for index, first in enumerate(per_chunk):
-        for second in per_chunk[index + 1 :]:
+    per_chunk = [
+        (subject_of(chunk.chunk.text), _measurements(chunk.chunk.text)) for chunk in chunks
+    ]
+    for index, (first_subject, first) in enumerate(per_chunk):
+        for second_subject, second in per_chunk[index + 1 :]:
+            # `None` matches anything: see `subject_of` for why an unknown subject errs towards
+            # flagging rather than away from it.
+            known_and_different = (
+                first_subject is not None
+                and second_subject is not None
+                and first_subject != second_subject
+            )
+            if known_and_different:
+                continue
             for unit in first.keys() & second.keys():
                 if first[unit].isdisjoint(second[unit]):
                     return True

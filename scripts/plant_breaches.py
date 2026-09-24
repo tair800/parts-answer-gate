@@ -52,6 +52,7 @@ from parts_answer_gate.domain import (  # noqa: E402
 )
 from parts_answer_gate.evaluation.runner import force_answer  # noqa: E402
 from parts_answer_gate.retrieval.dense import explain_dense  # noqa: E402
+from parts_answer_gate.retrieval.embeddings import Embedder  # noqa: E402
 from parts_answer_gate.retrieval.pipeline import Retriever  # noqa: E402
 from parts_answer_gate.store import effectivity as effectivity_module  # noqa: E402
 from parts_answer_gate.store import loader as loader_module  # noqa: E402
@@ -65,6 +66,7 @@ from parts_answer_gate.store.engine import (  # noqa: E402
     database_url,
     session_scope,
 )
+from parts_answer_gate.store.lifecycle import measure_index_lifecycle  # noqa: E402
 from parts_answer_gate.store.queries import fetch_candidates  # noqa: E402
 
 CORPUS = REPO_ROOT / "data" / "generated"
@@ -87,6 +89,12 @@ class BreachResult:
     baseline: str
     #: What it saw with the breach in place.
     breached: str
+    #: The same two observations as **comparable values**, which is what lets the clean-baseline
+    #: check fail. `baseline` and `breached` are prose, and two sentences written by different
+    #: f-strings differ whatever the detector saw -- so a test comparing them asserts only that two
+    #: strings are not identical. These are the numbers it compares instead.
+    baseline_value: int | float | bool
+    breached_value: int | float | bool
     caught: bool
 
 
@@ -163,6 +171,8 @@ def breach_effectivity_bypass(session: Session, chunks: list[dict[str, Any]]) ->
         detector="the withdrawn chunk's membership of the candidate set",
         baseline=f"withdrawn chunk admitted: {before}",
         breached=f"withdrawn chunk admitted: {after}",
+        baseline_value=before,
+        breached_value=after,
         caught=(not before) and after,
     )
 
@@ -191,6 +201,8 @@ def breach_wrong_variant(session: Session, chunks: list[dict[str, Any]]) -> Brea
         detector="count of returned chunks belonging to a variant other than the one asked",
         baseline=f"{before} foreign-variant chunks",
         breached=f"{after} foreign-variant chunks",
+        baseline_value=before,
+        breached_value=after,
         caught=before == 0 and after > 0,
     )
 
@@ -228,6 +240,8 @@ def breach_stale_revision_off_by_one(
         detector="distinct revisions admitted on the exact day of a withdrawal",
         baseline=f"{before} revision(s) on the boundary date",
         breached=f"{after} revision(s) on the boundary date",
+        baseline_value=before,
+        breached_value=after,
         caught=before == 1 and after > 1,
     )
 
@@ -275,6 +289,8 @@ def breach_knowledge_time(session: Session, documents: list[dict[str, Any]]) -> 
         detector="whether a correction issued after the asked knowledge date became a candidate",
         baseline=f"correction visible at an earlier knowledge date: {before}",
         breached=f"correction visible at an earlier knowledge date: {after}",
+        baseline_value=before,
+        breached_value=after,
         caught=(not before) and after,
     )
 
@@ -300,6 +316,8 @@ def breach_pgvector_bypass(session: Session, chunks: list[dict[str, Any]]) -> Br
         detector="the executed query plan, read back from PostgreSQL",
         baseline=f"real query plan accepted: {accepted}",
         breached=f"breach plan accepted: {not rejected}",
+        baseline_value=accepted,
+        breached_value=not rejected,
         caught=accepted and rejected,
     )
 
@@ -330,6 +348,8 @@ def breach_unsupported_answer(session: Session) -> BreachResult:
         detector="the outcome for a question naming a product that is not in the corpus",
         baseline=f"answered: {before}",
         breached=f"answered: {after}",
+        baseline_value=before,
+        breached_value=after,
         caught=(not before) and after,
     )
 
@@ -359,6 +379,8 @@ def breach_wrong_citation(chunks: list[dict[str, Any]]) -> BreachResult:
         detector="verify_citation, which locates the span in the source by offset",
         baseline=f"honest citation verified: {before}",
         breached=f"tampered citation verified: {after}",
+        baseline_value=before,
+        breached_value=after,
         caught=before and not after,
     )
 
@@ -397,35 +419,40 @@ def breach_missing_disclosure() -> BreachResult:
         detector="the Answer model's own validation",
         baseline=f"disclosure present by default: {before}",
         breached=f"construction refused with {detail}" if caught else "constructed successfully",
+        baseline_value=before,
+        breached_value=not caught,
         caught=caught,
     )
 
 
-def breach_incremental_index_skip(session: Session) -> BreachResult:
-    """Freeze the content hash, so changed text never looks changed and is never re-embedded."""
-    rows = (
-        session.execute(sql_text("SELECT chunk_id, text FROM chunk ORDER BY chunk_id LIMIT 5"))
-        .mappings()
-        .all()
-    )
-    texts = [str(row["text"]) for row in rows]
-    real_hashes = {loader_module.content_hash(t) for t in texts}
-    changed_hashes = {loader_module.content_hash(t + " amended") for t in texts}
-    before = len(real_hashes & changed_hashes) == 0
+def breach_incremental_index_skip(session: Session, embedder: Embedder) -> BreachResult:
+    """Freeze the content hash, so changed text never looks changed and is never re-embedded.
+
+    Measured through `measure_index_lifecycle`, the function that writes `index_lifecycle.json`,
+    rather than by calling `content_hash` twice and comparing the results. The first version of
+    this breach did exactly that: it patched `content_hash`, then asserted that `content_hash` now
+    returned a constant. That is a tautology dressed as a detector — it would have passed against a
+    loader that ignored hashing entirely. What has to be observed is the *loader* failing to
+    re-embed text that changed, and that is what this observes.
+    """
+    real = measure_index_lifecycle(session, embedder, sample_size=8)
+    before = int(real["chunks_re_embedded"])
 
     with _patched(loader_module, "content_hash", lambda _text, **_kwargs: "constant"):
-        frozen = {loader_module.content_hash(t) for t in texts}
-        frozen_changed = {loader_module.content_hash(t + " amended") for t in texts}
-    after = frozen == frozen_changed and len(frozen) == 1
+        frozen = measure_index_lifecycle(session, embedder, sample_size=8)
+    after = int(frozen["chunks_re_embedded"])
 
     return BreachResult(
         name="incremental_index_skip",
         guarantee="changed chunks are re-embedded; unchanged chunks are not",
         mechanism="content_hash replaced by a constant, so no edit ever registers as a change",
-        detector="whether an amended text hashes differently from the original",
-        baseline=f"amended text hashes differently: {before}",
-        breached=f"all texts share one hash: {after}",
-        caught=before and after,
+        detector="measure_index_lifecycle's count of chunks the loader actually re-embedded "
+        "after their text was changed",
+        baseline=f"{before} of 8 changed chunks re-embedded",
+        breached=f"{after} of 8 changed chunks re-embedded",
+        baseline_value=before,
+        breached_value=after,
+        caught=before == 8 and after == 0,
     )
 
 
@@ -459,6 +486,8 @@ def breach_split_leak() -> BreachResult:
         detector="the partition check, resolving question -> chunk -> document -> family",
         baseline=f"{before} leaked documents",
         breached=f"{after} leaked documents",
+        baseline_value=before,
+        breached_value=after,
         caught=before == 0 and after > 0,
     )
 
@@ -476,6 +505,7 @@ def main() -> int:
     documents = _records("documents.json", "documents")
 
     engine = build_engine(database_url())
+    embedder = Retriever().embedder
     results: list[BreachResult] = []
 
     with session_scope(engine) as session:
@@ -492,7 +522,7 @@ def main() -> int:
             lambda: breach_unsupported_answer(session),
             lambda: breach_wrong_citation(chunks),
             breach_missing_disclosure,
-            lambda: breach_incremental_index_skip(session),
+            lambda: breach_incremental_index_skip(session, embedder),
             breach_split_leak,
         ]
         for plant in planned:

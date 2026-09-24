@@ -66,13 +66,24 @@ def test_every_planted_breach_was_caught() -> None:
 
 
 def test_each_breach_had_a_clean_baseline() -> None:
-    """The detector must have been quiet before the breach, or it is not detecting the breach."""
+    """The detector must have been quiet before the breach, or it is not detecting the breach.
+
+    Compared on `baseline_value` and `breached_value`, which are numbers, not on `baseline` and
+    `breached`, which are prose. An earlier version compared the prose -- and because the two
+    strings come from different f-strings ("honest citation verified: True" against "tampered
+    citation verified: False") they differ whatever the detector saw. The test asserted that two
+    sentences were not identical and could not fail: precisely the shape of guard ADR-001's
+    falsifiability clause rules out, in the file whose job is to enforce it.
+    """
     report = _report()
     for breach in report["breaches"]:
         assert breach["baseline"], f"{breach['name']} recorded no baseline observation"
-        assert breach["baseline"] != breach["breached"], (
-            f"{breach['name']} saw the same thing before and after the breach "
-            f"({breach['baseline']!r}), so the detector is not responding to the breach"
+        assert "baseline_value" in breach and "breached_value" in breach, (
+            f"{breach['name']} records no comparable observation, only prose"
+        )
+        assert breach["baseline_value"] != breach["breached_value"], (
+            f"{breach['name']} observed the same value before and after the breach "
+            f"({breach['baseline_value']!r}), so the detector is not responding to the breach"
         )
 
 
