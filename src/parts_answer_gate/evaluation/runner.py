@@ -53,6 +53,7 @@ __all__ = [
     "RunSet",
     "force_answer",
     "is_hard_block",
+    "revision_key",
     "run_arm",
     "run_question",
 ]
@@ -92,6 +93,10 @@ class QuestionRun:
     answer: Answer
     result: RetrievalResult
     latency_ms: float
+    #: `family/revision` for every document this answer cited. Carried rather than re-derived
+    #: because the family is only in hand while the document rows are loaded, and a second lookup
+    #: later is a second chance to look up the wrong thing.
+    cited_revision_keys: frozenset[str] = frozenset()
 
     @property
     def outcome(self) -> GateOutcome:
@@ -197,16 +202,39 @@ def _query_for(question: Mapping[str, Any]) -> Query:
     )
 
 
-def _revisions_for(session: Session, chunks: Sequence[RetrievedChunk]) -> dict[str, str]:
+def _document_facts(
+    session: Session, chunks: Sequence[RetrievedChunk]
+) -> dict[str, tuple[str, str]]:
+    """document id -> (revision, family id), for the answerer and for the scoring key.
+
+    Both come from one query because they describe one row. Fetching the revision here and the
+    family somewhere else is how the two drift into describing different documents.
+    """
     document_ids = {item.chunk.document_id for item in chunks}
     if not document_ids:
         return {}
     rows = session.execute(
-        select(DocumentRow.document_id, DocumentRow.revision).where(
+        select(DocumentRow.document_id, DocumentRow.revision, DocumentRow.family_id).where(
             DocumentRow.document_id.in_(document_ids)
         )
     ).all()
-    return {str(row[0]): str(row[1]) for row in rows}
+    return {str(row[0]): (str(row[1]), str(row[2])) for row in rows}
+
+
+def revision_key(family_id: str, revision: str) -> str:
+    """The identity the wrong-answer rule compares, qualified by family.
+
+    Revision labels are **not unique**: this corpus uses five of them (`A`, `B`, `C`, `D`, `FB1`)
+    across 108 documents in 9 families, because a revision letter identifies a document's place in
+    its own family's history and nothing more. Comparing the bare labels asks "did the answer cite
+    something called C?" when the question is "did the answer cite *this family's* C, and was that
+    in force?" — and any citation of another family's C would have read as correct.
+
+    Qualifying by family makes the comparison an identity again. It can only ever move a measured
+    rate upward, never downward, which is the property that makes it safe to apply to a hold-out
+    that has already been scored: it cannot flatter the result.
+    """
+    return f"{family_id}/{revision}"
 
 
 def _retrieve_for_arm(
@@ -250,11 +278,21 @@ def run_question(
         # branch the shipped system carries for the benefit of a baseline.
         decision = force_answer(decision, result.chunks)
 
-    revisions = _revisions_for(session, decision.approved_chunks)
+    facts = _document_facts(session, decision.approved_chunks)
+    revisions = {document_id: revision for document_id, (revision, _) in facts.items()}
     answer = (
         Answer(query=query, decision=decision)
         if decision.outcome is GateOutcome.ABSTAIN
         else _ANSWERER.answer(query, decision, revisions)
+    )
+
+    # The citation itself keeps the bare revision, because that is what a technician reads on the
+    # document in front of them. The scoring key is separate and qualified.
+    cited = frozenset(citation.chunk_id for citation in answer.citations)
+    keys = frozenset(
+        revision_key(facts[item.chunk.document_id][1], facts[item.chunk.document_id][0])
+        for item in decision.approved_chunks
+        if item.chunk.chunk_id in cited and item.chunk.document_id in facts
     )
 
     return QuestionRun(
@@ -265,6 +303,7 @@ def run_question(
         answer=answer,
         result=result,
         latency_ms=(time.perf_counter() - started) * 1000.0,
+        cited_revision_keys=keys,
     )
 
 
@@ -297,7 +336,7 @@ def _answer_outcome(
         language=run.language,
         outcome=decision.outcome,
         gate_score=decision.signals.term_coverage,
-        cited_revisions=frozenset(c.revision for c in run.answer.citations),
+        cited_revisions=run.cited_revision_keys,
         in_force_revisions=in_force_revisions,
         cited_variants=frozenset(
             item.chunk.effectivity.variant_id
@@ -333,9 +372,7 @@ def run_arm(
         run = run_question(retriever, session, question, arm)
         runs.append(run)
         cases.append(_retrieval_case(question, run))
-        outcomes.append(
-            _answer_outcome(question, run, in_force.get(run.question_id, frozenset()))
-        )
+        outcomes.append(_answer_outcome(question, run, in_force.get(run.question_id, frozenset())))
 
     return RunSet(
         arm=arm,

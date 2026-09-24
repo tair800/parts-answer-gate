@@ -52,6 +52,7 @@ __all__ = [
     "review_rate",
     "summarise_retrieval",
     "ungated_wrong_answer_rate",
+    "unsupported_answer_rate",
     "wrong_answer_rate",
 ]
 
@@ -471,6 +472,30 @@ def ungated_wrong_answer_rate(outcomes: Iterable[AnswerOutcome]) -> float:
     """
     items = _materialise(outcomes)
     return sum(1 for item in items if item.would_be_wrong) / len(items)
+
+
+def unsupported_answer_rate(outcomes: Iterable[AnswerOutcome]) -> float:
+    """Answers delivered for questions the corpus cannot support, per answer delivered.
+
+    **This is not kill condition H and does not replace it.** H is stated over ADR-001's definition
+    of a wrong answer — revision-incorrect or variant-incorrect — and it is reported against that
+    definition whatever the result.
+
+    This figure is published beside it because H turned out to measure a quantity the gate cannot
+    move. The effectivity filter runs *before* the gate and constrains family, variant and as-of
+    date in SQL, so once a question names its variant every surviving candidate is right-family,
+    right-variant and in force. An arm that removes only the gate therefore cannot produce a
+    revision- or variant-incorrect answer: its rate is zero by construction rather than by merit.
+
+    What the gate does prevent is answering with no supporting passage at all, which is this. It
+    was added after the hold-out had been scored, so it is disclosed as a supplementary measurement
+    and carries none of the pre-registration weight that the twelve predeclared conditions carry.
+    """
+    items = _materialise(outcomes)
+    delivered = [item for item in items if item.answered]
+    if not delivered:
+        return 0.0
+    return sum(1 for item in delivered if not item.supporting_chunk_exists) / len(delivered)
 
 
 def default_thresholds(outcomes: Iterable[AnswerOutcome], points: int = 11) -> tuple[float, ...]:

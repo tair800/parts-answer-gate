@@ -11,10 +11,12 @@ the source code. `extension_installed` comes from `pg_extension`, `column_type` 
 `breach_caught` is the falsifiability clause. ADR-001 says a guard that only reads source text does
 not count — a breach must change behaviour and a test must observe the change. So this module plants
 the exact breach the ADR names: it fetches the same filtered candidates and sorts them by distance
-in Python. That impostor returns **the same ranking** as the real thing, which is the point: the
-substitution is invisible in the output, and only the query plan gives it away. `breach_caught` is
-true when the guard accepts the real query, rejects the impostor, and the two agree on the result —
-because if they disagreed, the test would be detecting a bug rather than detecting the breach.
+in Python. That impostor returns **very nearly the same ranking** as the real thing — the artifact
+records how much of the top-k it reproduced — and that is the point: the substitution is close to
+invisible in the output, and only the query plan gives it away. `breach_caught` is therefore true
+when the guard accepts the real query's plan and rejects the impostor's, and it does not require the
+two rankings to be identical: HNSW is an approximate index and the Python sort is exhaustive, so a
+small disagreement is the expected, correct behaviour rather than evidence of anything.
 """
 
 from __future__ import annotations
@@ -114,9 +116,14 @@ def in_memory_dense_search_breach(
 def _floats(stored: Any) -> list[float]:
     """Coerce whatever the driver handed back for a `vector` column into plain floats.
 
-    `Any` because the concrete type depends on whether pgvector's psycopg adapter is registered on
-    the connection — a list or a numpy array — and the breach only needs the numbers.
+    Raw SQL bypasses the SQLAlchemy `Vector` type, so psycopg returns the column in pgvector's own
+    text form — `[0.1,0.2,...]` — unless its adapter has been registered on the connection. Both
+    shapes are accepted here rather than registering the adapter globally: this diagnostic is the
+    only code in the project that reads a stored vector back, and a connection-wide type
+    registration to serve one function would change how every other query behaves.
     """
+    if isinstance(stored, str):
+        return [float(value) for value in stored.strip("[]").split(",") if value]
     return [float(value) for value in stored]
 
 
@@ -172,14 +179,10 @@ def build_pgvector_artifact(
     evidence = explain_dense(session, filters, vector, limit=limit)
     planner_evidence = explain_dense(session, filters, vector, limit=limit, use_ann_plan=False)
 
-    breach_hits, breach_plan = in_memory_dense_search_breach(
-        session, filters, vector, limit=limit
-    )
+    breach_hits, breach_plan = in_memory_dense_search_breach(session, filters, vector, limit=limit)
     real_ids = [hit.chunk_id for hit in real_hits]
     breach_ids = [hit.chunk_id for hit in breach_hits]
-    overlap = (
-        len(set(real_ids) & set(breach_ids)) / len(real_ids) if real_ids else 0.0
-    )
+    overlap = len(set(real_ids) & set(breach_ids)) / len(real_ids) if real_ids else 0.0
     guard_accepted = executed_through_pgvector(evidence.plan)
     guard_rejected = not executed_through_pgvector(breach_plan)
     breach = BreachOutcome(

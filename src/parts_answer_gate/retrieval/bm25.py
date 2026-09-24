@@ -66,7 +66,4 @@ def bm25_scores(query_text: str, candidates: Sequence[tuple[str, str]]) -> dict[
 
     index: Any = BM25Okapi(corpus, k1=BM25_K1, b=BM25_B)
     raw = index.get_scores(tokens)
-    return {
-        chunk_id: float(score)
-        for (chunk_id, _), score in zip(candidates, raw, strict=True)
-    }
+    return {chunk_id: float(score) for (chunk_id, _), score in zip(candidates, raw, strict=True)}

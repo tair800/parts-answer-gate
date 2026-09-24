@@ -1,0 +1,49 @@
+{
+  "ablated_fix": {
+    "measured_effect": "not measured",
+    "name": "multilingual encoder shared across all three languages",
+    "what_it_ablates": "the alternative is a per-language lexical index with no cross-lingual vector signal, which is what the ablated arm measures"
+  },
+  "by_language": {
+    "en": {
+      "abstention_rate": 0.27450980392156865,
+      "answer_correctness": 1.0,
+      "coverage": 0.23529411764705882,
+      "end_to_end_correctness": 0.23529411764705882,
+      "questions": 51,
+      "retrieval_recall_at_10": 1.0
+    },
+    "ru": {
+      "abstention_rate": 0.29411764705882354,
+      "answer_correctness": 1.0,
+      "coverage": 0.43137254901960786,
+      "end_to_end_correctness": 0.43137254901960786,
+      "questions": 51,
+      "retrieval_recall_at_10": 1.0
+    },
+    "tr": {
+      "abstention_rate": 0.2549019607843137,
+      "answer_correctness": 1.0,
+      "coverage": 0.3137254901960784,
+      "end_to_end_correctness": 0.3137254901960784,
+      "questions": 51,
+      "retrieval_recall_at_10": 1.0
+    }
+  },
+  "corpus_is_synthetic_parallel_text": true,
+  "judge_calibration": {
+    "performed": false,
+    "why": "no native speaker of Turkish or Russian reviewed this corpus. The scores above are computed against construction metadata \u2014 the generator knows which passage supports which question because it wrote both \u2014 so they measure retrieval and gating over synthetic parallel text. They do not establish that the Turkish reads like Turkish, and no LLM judge was used, so there is no judge to calibrate."
+  },
+  "languages": [
+    "en",
+    "ru",
+    "tr"
+  ],
+  "provenance": {
+    "commit": "280ca9fe09873284ff029eb60af4b14e3f65f9a0",
+    "corpus_is_synthetic": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  }
+}

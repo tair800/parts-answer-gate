@@ -74,7 +74,9 @@ __all__ = [
 #: m=16 and ef_construction=200 are pgvector's documented recall-favouring build, roughly doubling
 #: build time against the ef_construction=64 default for a corpus this size — trivial at 5k rows and
 #: the right trade when the number being published is recall@10.
-#: `vector_cosine_ops` because the encoder emits unit vectors and `EMBEDDING_POLICY` says cosine.
+#: `vector_cosine_ops` because the encoder's output is not unit-norm — measured, see
+#: `EMBEDDING_POLICY["normalization"]` — so cosine is the operator that compares these vectors
+#: correctly, and an index built for a different operator class would simply never be used.
 HNSW_BUILD_PARAMETERS: Final[dict[str, Any]] = {
     "index_name": "ix_chunk_embedding_hnsw",
     "method": "hnsw",

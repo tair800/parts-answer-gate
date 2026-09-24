@@ -205,7 +205,13 @@ def _generation(family_id: str, variant_id: str, topic_key: str, revision_index:
 
 
 def _number_at(
-    unit: Unit, variant_index: int, family_id: str, variant_id: str, topic_key: str, generation: int
+    unit: Unit,
+    variant_index: int,
+    *,
+    family_id: str,
+    variant_id: str,
+    topic_key: str,
+    generation: int,
 ) -> int:
     """The measurement at a given generation, guaranteed different from the one before it.
 
@@ -247,7 +253,14 @@ def spec_for(
     if topic.unit is Unit.PART:
         part = part_number("spec-part", family_id, variant_id, topic.key, f"g{generation}")
     else:
-        number = _number_at(topic.unit, variant_index, family_id, variant_id, topic.key, generation)
+        number = _number_at(
+            topic.unit,
+            variant_index,
+            family_id=family_id,
+            variant_id=variant_id,
+            topic_key=topic.key,
+            generation=generation,
+        )
     return Spec(
         generation=generation,
         number=number,
@@ -284,9 +297,7 @@ def plan_bulletin(family: Family, revisions: tuple[Revision, ...], specs: _SpecM
         index = chooser.randrange(len(options))
         if options[index] == in_manual:
             index = (index + 1) % len(options)
-        entries.append(
-            BulletinEntry(variant.variant_id, variant_index, topic_key, options[index])
-        )
+        entries.append(BulletinEntry(variant.variant_id, variant_index, topic_key, options[index]))
     return Bulletin(family.family_id, current.valid_from + timedelta(days=offset), tuple(entries))
 
 

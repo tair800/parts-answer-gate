@@ -16,8 +16,7 @@ The text is written in the native scripts, not transliterated, and the generated
 # line: `ı`, `İ`, `Н`, `б`, `а`, `р` and their neighbours are exactly the characters those
 # rules warn about, and here they are the point rather than a typo. Suppressed for the file,
 # because a per-string noqa on a parallel corpus is noise that hides a real one.
-# ruff: noqa: RUF001, RUF002, RUF003
-
+# ruff: noqa: RUF003
 
 from __future__ import annotations
 

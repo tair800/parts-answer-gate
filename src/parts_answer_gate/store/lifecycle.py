@@ -99,9 +99,9 @@ def measure_index_lifecycle(
         # savepoint still has to be discardable.
         session.flush()
 
-        staleness = session.execute(
-            sql_text(_STALENESS_SQL), {"chunk_ids": chunk_ids}
-        ).mappings().one()
+        staleness = (
+            session.execute(sql_text(_STALENESS_SQL), {"chunk_ids": chunk_ids}).mappings().one()
+        )
         collateral = int(
             session.execute(
                 sql_text(_COLLATERAL_SQL), {"chunk_ids": chunk_ids, "since": probe_started}

@@ -13,9 +13,9 @@ Three properties are needed and they pull in different directions.
    the XP-400" stops being true and the wrong-variant measurement silently softens.
 
 (2) and (3) are reconciled by making the space large enough that a collision is not expected —
-26^2 * 10^4 * 36^3, about 3.1e11, against roughly 400 issued numbers — and then *checking* rather than
-assuming: `generate.py` asserts every issued number is unique and fails the build loudly if not. An
-unproven assumption about a hash is still an assumption.
+26^2 * 10^4 * 36^3, about 3.1e11, against roughly 400 issued numbers — and then *checking*
+rather than assuming: `generate.py` asserts every issued number is unique and fails the build
+loudly if not. An unproven assumption about a hash is still an assumption.
 """
 
 from __future__ import annotations
@@ -68,7 +68,7 @@ def near_miss_part_number(real: str, issued: frozenset[str]) -> str | None:
     for position in range(4):
         for shift in (1, 2, 3, 4, 5, 6, 7, 8, 9):
             replacement = str((int(digits[position]) + shift) % 10)
-            candidate = f"{prefix}-{digits[:position]}{replacement}{digits[position + 1:]}-{tail}"
+            candidate = f"{prefix}-{digits[:position]}{replacement}{digits[position + 1 :]}-{tail}"
             if candidate not in issued and is_well_formed(candidate):
                 return candidate
     return None

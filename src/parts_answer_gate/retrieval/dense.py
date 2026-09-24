@@ -43,8 +43,12 @@ __all__ = [
     "vector_literal",
 ]
 
-#: Cosine distance. The encoder emits unit vectors, so `<->` (L2) would rank identically, but the
-#: HNSW index is built with `vector_cosine_ops` and an operator that does not match the index's
+#: Cosine distance, and the choice is not arbitrary: the encoder does **not** emit unit vectors
+#: (`EMBEDDING_POLICY["normalization"]` records the measurement), so `<->` and `<#>` would rank
+#: differently rather than equivalently. Cosine normalises inside the operator, which is what makes
+#: it the right one for vectors of varying magnitude.
+#:
+#: The HNSW index is built with `vector_cosine_ops`, and an operator that does not match the index's
 #: operator class is an operator the planner cannot use the index for. The two must agree, and they
 #: agree here because both read the same constant.
 DISTANCE_OPERATOR: Final = "<=>"
@@ -52,11 +56,21 @@ DISTANCE_OPERATOR: Final = "<=>"
 #: Turned off for the ANN statement and for nothing else.
 #:
 #: PostgreSQL prices `cosine_distance` at `procost = 1`, the cost of an integer comparison, when a
-#: 384-dimension distance is three orders of magnitude more work than that. The planner therefore
-#: believes that computing the distance for every row the effectivity filter admits is cheaper than
-#: an HNSW scan, and chooses a bitmap scan. Measured on this schema with 4,500 chunks and a filter
-#: admitting 750 of them, warm cache: bitmap heap scan 1.46-5.10 ms, HNSW index scan 0.47-1.14 ms.
-#: The planner is wrong by roughly a factor of three, and the gap widens with the corpus.
+#: 384-dimension distance is three orders of magnitude more work than that. Left alone, the planner
+#: therefore computes the distance for every row the effectivity filter admits rather than walking
+#: the HNSW graph.
+#:
+#: **At this corpus size that choice is the faster one, and the artifact says so.** Measured in the
+#: call that builds `pgvector.json`, on 1,941 chunks with a filter admitting 188: ANN plan ~21 ms,
+#: planner's own choice ~8 ms. Scanning 188 rows is simply cheaper than an approximate-neighbour
+#: traversal, and it would be dishonest to present the index as a speed-up here.
+#:
+#: The settings are applied anyway, for a reason that is about evidence rather than latency: ADR-001
+#: kill condition K asks whether vector retrieval *executes inside the database through the index*,
+#: and a plan that never touches the index cannot answer that question either way. The crossover is
+#: a property of corpus size — the scan is linear in admitted rows and the graph walk is not — so a
+#: production corpus two orders of magnitude larger inverts it. `pgvector.json` publishes both plans
+#: and both timings so a reader can see the trade rather than be told about it.
 #:
 #: pgvector's own troubleshooting note is to disable sequential scans when the index is not being
 #: used; a bitmap heap scan needs `enable_bitmapscan` off as well. Both are scoped to the dense
@@ -64,9 +78,24 @@ DISTANCE_OPERATOR: Final = "<=>"
 #: only reach through a bitmap scan — disabling it session-wide would break the stage that is
 #: supposed to be the cheapest one in the pipeline.
 #:
-#: The cost is two extra round trips to set and two to reset. `build_pgvector_artifact` measures the
-#: query both ways and publishes both numbers, so this trade is evidenced rather than asserted.
+#: **These two settings cannot guarantee the index is used, and the artifact does not pretend they
+#: can.** Measured on a 4,536-chunk store: when a question names a variant the candidate set falls
+#: to ~60 rows, and PostgreSQL then serves the query with a plain index scan on
+#: `ix_chunk_effectivity` plus a top-N sort — a plan neither setting disables, and the right plan
+#: for sixty rows. `explain_mentions_index` reports what the planner actually did, so a caller
+#: building `pgvector.json` has to hand it a query whose effectivity filter admits enough rows for
+#: an approximate index to be the sensible choice. A `false` there is a fact about the query, not a
+#: defect in the index, and `candidates_after_effectivity_filter` in the same artifact says which.
+#:
+#: The cost is one extra round trip to set and one to reset. Both settings go in a single statement
+#: because psycopg accepts several statements in one `execute` when no parameters are bound, and on
+#: this host a round trip to the container costs 1.5-3.8 ms — measured — which is the same order as
+#: the query itself. `build_pgvector_artifact` measures the query both ways and publishes both
+#: numbers, so this trade is evidenced rather than asserted.
 ANN_PLAN_SETTINGS: Final = ("enable_seqscan", "enable_bitmapscan")
+
+_ANN_PLAN_SET: Final = "; ".join(f"SET LOCAL {name} = off" for name in ANN_PLAN_SETTINGS)
+_ANN_PLAN_RESET: Final = "; ".join(f"RESET {name}" for name in ANN_PLAN_SETTINGS)
 
 _SQL_TEMPLATE: Final = """
 SELECT chunk.chunk_id AS chunk_id,
@@ -111,13 +140,11 @@ def ann_plan_scope(session: Session, *, enabled: bool = True) -> Iterator[None]:
     if not enabled:
         yield
         return
-    for name in ANN_PLAN_SETTINGS:
-        session.execute(text(f"SET LOCAL {name} = off"))
+    session.execute(text(_ANN_PLAN_SET))
     try:
         yield
     finally:
-        for name in ANN_PLAN_SETTINGS:
-            session.execute(text(f"RESET {name}"))
+        session.execute(text(_ANN_PLAN_RESET))
 
 
 def vector_literal(vector: Sequence[float]) -> str:

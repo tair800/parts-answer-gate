@@ -153,7 +153,9 @@ def compute(
 
 
 def verify_partition(
-    documents: Iterable[Mapping[str, Any]], questions: Iterable[Mapping[str, Any]]
+    documents: Iterable[Mapping[str, Any]],
+    questions: Iterable[Mapping[str, Any]],
+    chunk_to_document: Mapping[str, str] | None = None,
 ) -> list[str]:
     """Every way the split could leak, checked rather than assumed. Returns the problems found.
 
@@ -163,31 +165,46 @@ def verify_partition(
     """
     documents = list(documents)
     questions = list(questions)
+    chunk_to_document = chunk_to_document or {}
     problems: list[str] = []
 
-    by_document: dict[str, set[str]] = {}
+    splits_per_document: dict[str, set[str]] = {}
     for document in documents:
-        by_document.setdefault(str(document["document_id"]), set()).add(
+        splits_per_document.setdefault(str(document["document_id"]), set()).add(
             split_of(str(document["family_id"]))
         )
-    for document_id, splits in sorted(by_document.items()):
+    for document_id, splits in sorted(splits_per_document.items()):
         if len(splits) > 1:
             problems.append(f"document {document_id} appears in both splits: {sorted(splits)}")
 
-    known = {str(d["document_id"]) for d in documents}
+    # Supporting evidence is named per **chunk** by the corpus, and a caller may hand either form.
+    # Both are read.
+    #
+    # This read only `supporting_document_ids` — a key the corpus does not use — so the loop
+    # iterated nothing and the leak check passed without inspecting a single question. A guard that
+    # examines an empty sequence is indistinguishable from a guard that found nothing wrong, which
+    # is the worst property a guard can have.
+    document_by_id = {str(d["document_id"]): d for d in documents}
     for question in questions:
         question_split = split_of(str(question["family_id"]))
-        for chunk_document in question.get("supporting_document_ids", []) or []:
-            if str(chunk_document) not in known:
+        named = [
+            *(question.get("supporting_document_ids") or []),
+            *(
+                chunk_to_document.get(str(chunk_id), "")
+                for chunk_id in (question.get("supporting_chunk_ids") or [])
+            ),
+        ]
+        for document_id in (str(item) for item in named if item):
+            supporting = document_by_id.get(document_id)
+            if supporting is None:
                 problems.append(
-                    f"question {question['question_id']} cites unknown document {chunk_document}"
+                    f"question {question['question_id']} cites unknown document {document_id}"
                 )
                 continue
-            supporting = next(d for d in documents if str(d["document_id"]) == str(chunk_document))
             if split_of(str(supporting["family_id"])) != question_split:
                 problems.append(
                     f"question {question['question_id']} is {question_split} but its supporting "
-                    f"document {chunk_document} is {split_of(str(supporting['family_id']))}"
+                    f"document {document_id} is {split_of(str(supporting['family_id']))}"
                 )
 
     return problems

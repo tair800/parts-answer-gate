@@ -17,8 +17,7 @@ bands make every cross-variant answer wrong by construction.
 # line: `ı`, `İ`, `Н`, `б`, `а`, `р` and their neighbours are exactly the characters those
 # rules warn about, and here they are the point rather than a typo. Suppressed for the file,
 # because a per-string noqa on a parallel corpus is noise that hides a real one.
-# ruff: noqa: RUF001, RUF002, RUF003
-
+# ruff: noqa: RUF001, RUF003
 
 from __future__ import annotations
 
@@ -251,27 +250,32 @@ def spec_options(unit: Unit, variant_index: int) -> tuple[int, ...]:
     raise ValueError(f"{unit} states a part number, which is not drawn from a numeric band")
 
 
-def render_value(unit: Unit, number: int, language: Language) -> str:
-    """The value as it appears in the prose — and therefore as the expected answer span.
+#: How a measurement is written in each language. Units are localised where a technician would
+#: localise them and left alone where they would not: an ISO viscosity grade and an ampere rating
+#: are written the same way in all three, and translating them would make the corpus less
+#: plausible rather than more multilingual.
+_UNIT_TEXT: Final[dict[Unit, Trilingual]] = {
+    Unit.TORQUE: Trilingual(en="{n} Nm", tr="{n} Nm", ru="{n} Н·м"),
+    Unit.LITRES: Trilingual(en="{n} L", tr="{n} L", ru="{n} л"),
+    Unit.BAR: Trilingual(en="{n} bar", tr="{n} bar", ru="{n} бар"),
+    Unit.AMPS: Trilingual(en="{n} A", tr="{n} A", ru="{n} A"),
+    Unit.GRADE: Trilingual(en="ISO VG {n}", tr="ISO VG {n}", ru="ISO VG {n}"),
+}
 
-    Units are localised where a technician would localise them and left alone where they would not:
-    an ISO viscosity grade and an ampere rating are written the same way in all three languages,
-    and translating them would make the corpus less plausible, not more multilingual.
-    """
-    if unit is Unit.TORQUE:
-        return f"{number} Н·м" if language is Language.RU else f"{number} Nm"
-    if unit is Unit.LITRES:
-        return f"{number} л" if language is Language.RU else f"{number} L"
+
+def _months(number: int, language: Language) -> str:
+    """Out of the table because Russian inflects the noun and a format string cannot."""
+    if language is Language.EN:
+        return f"{number} months"
+    if language is Language.TR:
+        return f"{number} ay"
+    return russian_count(number, "месяц", "месяца", "месяцев")
+
+
+def render_value(unit: Unit, number: int, language: Language) -> str:
+    """The value as it appears in the prose, which is also the expected answer span."""
+    if unit is Unit.PART:
+        raise ValueError(f"{unit} has no numeric rendering; its value is a part number")
     if unit is Unit.MONTHS:
-        if language is Language.EN:
-            return f"{number} months"
-        if language is Language.TR:
-            return f"{number} ay"
-        return russian_count(number, "месяц", "месяца", "месяцев")
-    if unit is Unit.BAR:
-        return f"{number} бар" if language is Language.RU else f"{number} bar"
-    if unit is Unit.AMPS:
-        return f"{number} A"
-    if unit is Unit.GRADE:
-        return f"ISO VG {number}"
-    raise ValueError(f"{unit} has no numeric rendering; its value is a part number")
+        return _months(number, language)
+    return _UNIT_TEXT[unit].of(language).format(n=number)

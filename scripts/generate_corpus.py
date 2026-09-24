@@ -74,7 +74,7 @@ def verify_determinism() -> int:
             second_digest = _digest(right / name)
             size = (left / name).stat().st_size
             if first_digest == second_digest:
-                print(f"  identical  {str(name):<18}{size:>9} bytes  sha256 {first_digest[:16]}")
+                print(f"  identical  {name!s:<18}{size:>9} bytes  sha256 {first_digest[:16]}")
             else:
                 failures += 1
                 print(f"  DIFFERS    {name}  {first_digest[:16]} vs {second_digest[:16]}")

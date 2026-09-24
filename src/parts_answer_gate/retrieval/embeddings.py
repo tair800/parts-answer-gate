@@ -49,10 +49,12 @@ EMBEDDING_POLICY: Final[dict[str, Any]] = {
     "runtime": "fastembed / ONNX, quantised, CPU, offline",
     "dim": EMBEDDING_DIM,
     "normalization": (
-        "L2 unit norm, produced by the model's own mean-pooling and normalisation head. Cosine "
-        "distance is therefore monotone in Euclidean distance, and the stored vector needs no "
-        "further scaling. `Embedder.measured_norm()` checks it against the real model rather than "
-        "trusting this sentence."
+        "None. The quantised ONNX build fastembed serves for this model does NOT L2-normalise its "
+        "output: `Embedder.measured_norm()` on the probe string returns about 5.4, not 1.0, and "
+        "that is a measurement rather than an assumption. Vectors are therefore stored exactly as "
+        "the encoder emits them and compared with cosine distance, which normalises internally — "
+        "so retrieval is unaffected, but `<->` (L2) and `<#>` (inner product) would NOT rank "
+        "identically to `<=>` here, and the HNSW index is built with `vector_cosine_ops` to match."
     ),
     "chunking": (
         "One embedding per stored chunk, over exactly `chunk.text` and nothing else: no "
@@ -113,9 +115,7 @@ class Embedder:
         """
         if not texts:
             return []
-        vectors = [
-            [float(value) for value in vector] for vector in self._model.embed(list(texts))
-        ]
+        vectors = [[float(value) for value in vector] for vector in self._model.embed(list(texts))]
         if len(vectors) != len(texts):
             raise RuntimeError(
                 f"embedder returned {len(vectors)} vectors for {len(texts)} texts; the loader's "

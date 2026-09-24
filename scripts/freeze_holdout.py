@@ -40,7 +40,7 @@ DEFAULT_CORPUS = REPO_ROOT / "data" / "generated"
 DEFAULT_ARTIFACTS = REPO_ROOT / "artifacts"
 
 
-def _load(corpus_dir: Path) -> tuple[list[dict], list[dict]]:
+def _load(corpus_dir: Path) -> tuple[list[dict], list[dict], dict[str, str]]:
     documents_path = corpus_dir / "documents.json"
     questions_path = corpus_dir / "questions.json"
     if not documents_path.is_file() or not questions_path.is_file():
@@ -50,9 +50,17 @@ def _load(corpus_dir: Path) -> tuple[list[dict], list[dict]]:
         )
     documents = json.loads(documents_path.read_text(encoding="utf-8"))
     questions = json.loads(questions_path.read_text(encoding="utf-8"))
+    chunks_path = corpus_dir / "chunks.json"
+    chunks = json.loads(chunks_path.read_text(encoding="utf-8")) if chunks_path.is_file() else []
+    chunks = chunks["chunks"] if isinstance(chunks, dict) else chunks
+
+    # The chunk -> document map, without which the leak check has nothing to resolve: the corpus
+    # names supporting evidence per chunk, and a question's split has to be compared against the
+    # split of the document that chunk belongs to.
     return (
         documents["documents"] if isinstance(documents, dict) else documents,
         questions["questions"] if isinstance(questions, dict) else questions,
+        {str(c["chunk_id"]): str(c["document_id"]) for c in chunks},
     )
 
 
@@ -75,9 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    documents, questions = _load(args.corpus)
+    documents, questions, chunk_to_document = _load(args.corpus)
 
-    leaks = verify_partition(documents, questions)
+    leaks = verify_partition(documents, questions, chunk_to_document)
     if leaks:
         print("the split does not partition cleanly:", file=sys.stderr)
         for line in leaks[:10]:

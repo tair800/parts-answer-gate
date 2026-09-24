@@ -24,13 +24,13 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Query as QueryParam, Request
+from fastapi import Depends, FastAPI, Request
+from fastapi import Query as QueryParam
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from parts_answer_gate import citations as citation_builder
 from parts_answer_gate import gate as answer_gate
 from parts_answer_gate.answerer import ExtractiveAnswerer, PostValidatedAnswerer
 from parts_answer_gate.config import Settings, get_settings
@@ -135,8 +135,10 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
             "name": "no superseded chunk from an as-of query",
             "measured": measured(
                 effectivity,
-                lambda r: f"{r['superseded_chunks_returned']} over {r['queries']} queries at "
-                f"{r['as_of_dates_replayed']} dates",
+                lambda r: (
+                    f"{r['superseded_chunks_returned']} over {r['queries']} queries at "
+                    f"{r['as_of_dates_replayed']} dates"
+                ),
             ),
             "artifact": "effectivity.json",
         },
@@ -171,8 +173,10 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
             "name": "never answers without support",
             "measured": measured(
                 gate_report,
-                lambda r: f"{r['answered_without_support']} over "
-                f"{r['unanswerable_questions']} unanswerable questions",
+                lambda r: (
+                    f"{r['answered_without_support']} over "
+                    f"{r['unanswerable_questions']} unanswerable questions"
+                ),
             ),
             "artifact": "gate.json",
         },
@@ -181,8 +185,10 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
             "name": "recall@10 beats every baseline",
             "measured": measured(
                 evaluation,
-                lambda r: f"{r['holdout']['retrieval']['system']['recall_at_10']:.4f} against a "
-                f"0.85 floor and the best baseline",
+                lambda r: (
+                    f"{r['holdout']['retrieval']['system']['recall_at_10']:.4f} against a "
+                    f"0.85 floor and the best baseline"
+                ),
             ),
             "artifact": "evaluation.json",
         },
@@ -200,8 +206,10 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
             "name": "the gate is not decorative",
             "measured": measured(
                 evaluation,
-                lambda r: f"ungated {r['holdout']['answering']['ungated_wrong_answer_rate']:.4f} "
-                f"against gated {r['holdout']['answering']['wrong_answer_rate']:.4f}",
+                lambda r: (
+                    f"ungated {r['holdout']['answering']['ungated_wrong_answer_rate']:.4f} "
+                    f"against gated {r['holdout']['answering']['wrong_answer_rate']:.4f}"
+                ),
             ),
             "artifact": "evaluation.json",
         },
@@ -218,9 +226,11 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
             "name": "two runs agree exactly",
             "measured": measured(
                 determinism,
-                lambda r: "retrieval and gate digests stable"
-                if r["retrieval_digest_stable"] and r["gate_digest_stable"]
-                else "DIFFERED",
+                lambda r: (
+                    "retrieval and gate digests stable"
+                    if r["retrieval_digest_stable"] and r["gate_digest_stable"]
+                    else "DIFFERED"
+                ),
             ),
             "artifact": "determinism.json",
         },
@@ -229,17 +239,17 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
             "name": "vector search runs in pgvector",
             "measured": measured(
                 pgvector,
-                lambda r: f"operator {r['distance_operator']}, index used "
-                f"{'yes' if r['explain_mentions_index'] else 'NO'}",
+                lambda r: (
+                    f"operator {r['distance_operator']}, index used "
+                    f"{'yes' if r['explain_mentions_index'] else 'NO'}"
+                ),
             ),
             "artifact": "pgvector.json",
         },
         {
             "letter": "L",
             "name": "no document in both splits",
-            "measured": measured(
-                corpus, lambda r: f"{r['documents_in_both_splits']} leaked"
-            ),
+            "measured": measured(corpus, lambda r: f"{r['documents_in_both_splits']} leaked"),
             "artifact": "corpus.json",
         },
     ]
@@ -307,7 +317,7 @@ def _answer(session: Session, query: Query) -> tuple[Answer, Any]:
 
 
 @app.get("/", response_class=HTMLResponse)
-def ask(
+def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never passed positionally
     request: Request,
     session: Annotated[Session, Depends(db)],
     config: Annotated[Settings, Depends(settings)],
@@ -350,7 +360,7 @@ def ask(
 
 
 @app.get("/api/ask")
-def ask_json(
+def ask_json(  # noqa: PLR0917 - injected by FastAPI, not called positionally
     session: Annotated[Session, Depends(db)],
     q: Annotated[str, QueryParam()],
     variant: Annotated[str | None, QueryParam()] = None,
@@ -375,9 +385,7 @@ def ask_json(
 
 
 @app.get("/evidence", response_class=HTMLResponse)
-def evidence(
-    request: Request, config: Annotated[Settings, Depends(settings)]
-) -> HTMLResponse:
+def evidence(request: Request, config: Annotated[Settings, Depends(settings)]) -> HTMLResponse:
     """Screen 2. Every measured number, traced to the artifact that produced it."""
     artifacts = _artifacts(config)
     return TEMPLATES.TemplateResponse(
@@ -388,9 +396,7 @@ def evidence(
 
 
 @app.get("/failures", response_class=HTMLResponse)
-def failures(
-    request: Request, config: Annotated[Settings, Depends(settings)]
-) -> HTMLResponse:
+def failures(request: Request, config: Annotated[Settings, Depends(settings)]) -> HTMLResponse:
     """Screen 3. What the system refuses, and what it still gets wrong."""
     artifacts = _artifacts(config)
     return TEMPLATES.TemplateResponse(
@@ -399,9 +405,7 @@ def failures(
 
 
 @app.get("/provenance", response_class=HTMLResponse)
-def provenance(
-    request: Request, config: Annotated[Settings, Depends(settings)]
-) -> HTMLResponse:
+def provenance(request: Request, config: Annotated[Settings, Depends(settings)]) -> HTMLResponse:
     """Screen 4. Where the passages came from, how they were cut, and what embedded them."""
     return TEMPLATES.TemplateResponse(
         request, "provenance.html", _context(config, artifacts=_artifacts(config))
@@ -417,7 +421,9 @@ _EXAMPLES: tuple[dict[str, str], ...] = (
     },
     {
         "label": "the same question, dated before a bulletin was withdrawn",
-        "href": "/?q=What+is+the+torque+for+the+impeller+retaining+bolt%3F&as_of=2026-03-01&lang=en",
+        "href": (
+            "/?q=What+is+the+torque+for+the+impeller+retaining+bolt%3F&as_of=2026-03-01&lang=en"
+        ),
     },
     {
         "label": "a specification the corpus does not contain",

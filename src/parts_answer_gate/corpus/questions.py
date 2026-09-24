@@ -194,7 +194,7 @@ def _answerable_revisions(
 
 def _answerable_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
     seeds: list[QuestionSeed] = []
-    for family, variant_index, variant_id in _variant_pairs():
+    for family, _, variant_id in _variant_pairs():
         omitted = corpus.omitted_topics[(family.family_id, variant_id)]
         available = [topic for topic in TOPICS if topic.key != omitted]
         picker = stream("question-topics", family.family_id, variant_id)
@@ -204,16 +204,13 @@ def _answerable_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 continue
             chooser = stream("question-revision", family.family_id, variant_id, topic.key)
             revision = candidates[chooser.randrange(len(candidates))]
-            seeds.append(
-                _answerable_seed(corpus, family, variant_index, variant_id, topic, revision)
-            )
+            seeds.append(_answerable_seed(corpus, family, variant_id, topic, revision))
     return seeds
 
 
 def _answerable_seed(
     corpus: BuiltCorpus,
     family: Family,
-    variant_index: int,
     variant_id: str,
     topic: Topic,
     revision: Revision,

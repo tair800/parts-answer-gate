@@ -14,10 +14,18 @@ Entry points:
 - `corpus_artifact()` returns the `artifacts/corpus.json` body without writing anything, for a
   caller that assembles the artifacts itself.
 - `build()` returns everything in memory, already checked.
+- `dataset.read_documents` / `read_chunks` / `read_questions` read the written files back as domain
+  objects, stripping the generator-only fields in one place instead of in every consumer.
 """
 
 from __future__ import annotations
 
+from parts_answer_gate.corpus.dataset import (
+    LoadedDocument,
+    read_chunks,
+    read_documents,
+    read_questions,
+)
 from parts_answer_gate.corpus.generate import (
     CorpusContractError,
     GeneratedCorpus,
@@ -36,10 +44,14 @@ __all__ = [
     "SPLIT_RULE",
     "CorpusContractError",
     "GeneratedCorpus",
+    "LoadedDocument",
     "build",
     "corpus_artifact",
     "generate_corpus",
     "is_holdout",
+    "read_chunks",
+    "read_documents",
+    "read_questions",
     "split_of",
     "write_artifact",
 ]

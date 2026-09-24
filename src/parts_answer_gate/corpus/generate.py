@@ -144,9 +144,7 @@ def _check_part_numbers(documents: Sequence[BuiltDocument]) -> int:
     return len(seen)
 
 
-def _check_answerable(
-    seeds: Sequence[QuestionSeed], chunks: dict[str, Chunk]
-) -> None:
+def _check_answerable(seeds: Sequence[QuestionSeed], chunks: dict[str, Chunk]) -> None:
     for seed in seeds:
         if not seed.answerable:
             if any(seed.supporting[language] for language in Language):

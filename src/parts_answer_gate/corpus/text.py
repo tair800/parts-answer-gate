@@ -25,7 +25,6 @@ format time instead of producing a corpus where the Russian passage is missing a
 # because a per-string noqa on a parallel corpus is noise that hides a real one.
 # ruff: noqa: RUF001, RUF002, RUF003
 
-
 from __future__ import annotations
 
 from typing import Final
@@ -93,8 +92,7 @@ HEADER_TEMPLATE: Final = Trilingual(
         "{valid_from} tarihinden itibaren geçerlidir\n{notice}"
     ),
     ru=(
-        "{title}\nРедакция {revision} · Документ {document_id}\n"
-        "Действует с {valid_from}\n{notice}"
+        "{title}\nРедакция {revision} · Документ {document_id}\nДействует с {valid_from}\n{notice}"
     ),
 )
 
@@ -519,8 +517,7 @@ UNANSWERABLE_TEMPLATES: Final[dict[str, Trilingual]] = {
             "stated for that part?"
         ),
         tr=(
-            "{pn} parçası {variant} için listelenmişti. Bu parça için hâlen onaylı {heading} "
-            "nedir?"
+            "{pn} parçası {variant} için listelenmişti. Bu parça için hâlen onaylı {heading} nedir?"
         ),
         ru=(
             "Деталь {pn} указывалась для {variant}. Каково действующее значение «{heading}» для "

@@ -67,10 +67,15 @@ class CandidateFilter:
 def candidate_filter(
     query: Query,
     *,
-    alias: str = "c",
+    alias: str = "chunk",
     languages: Iterable[Language] | None = None,
 ) -> CandidateFilter:
     """Build the predicate that constrains the candidate set before any ranking.
+
+    The default qualifier is the table's own name rather than a short alias, because every query
+    that uses this fragment writes `FROM chunk` without aliasing. One fragment used by three
+    statements has to agree with all three, and an alias only one of them declares is a runtime
+    error waiting for the first query that takes a different branch.
 
     `languages` defaults to the query's own language. It is a parameter rather than a fixed rule
     because the multilingual evaluation needs to run one arm with the language constraint widened —

@@ -33,9 +33,7 @@ _COLUMNS: Final = ", ".join(f"chunk.{name}" for name in CHUNK_READ_COLUMNS)
 # The column list and both templates are built from module constants; the `where` fragment comes
 # from `store.effectivity` and every caller-supplied value is a bound parameter. That is why the
 # S608 suppressions below are safe and not a shrug.
-_CANDIDATE_SQL: Final = (
-    f"SELECT {_COLUMNS} FROM chunk WHERE ({{where}}) ORDER BY chunk.chunk_id"  # noqa: S608
-)
+_CANDIDATE_SQL: Final = f"SELECT {_COLUMNS} FROM chunk WHERE ({{where}}) ORDER BY chunk.chunk_id"  # noqa: S608
 
 _EXACT_SQL: Final = (
     f"SELECT {_COLUMNS} FROM chunk "  # noqa: S608
@@ -85,7 +83,5 @@ def exact_identifier_lookup(
     if not terms:
         return []
     params: dict[str, Any] = {**candidate_filter.params, "identifiers": terms}
-    rows = session.execute(
-        text(_EXACT_SQL.format(where=candidate_filter.sql)), params
-    ).mappings()
+    rows = session.execute(text(_EXACT_SQL.format(where=candidate_filter.sql)), params).mappings()
     return [chunk_from_mapping(row) for row in rows]

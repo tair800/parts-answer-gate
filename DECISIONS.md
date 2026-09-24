@@ -242,3 +242,110 @@ than only in the user interface, and a test asserts it cannot be removed from a 
 
 This is a **transparency** obligation and nothing more. Implementing it asserts no conformity with
 any other instrument, and this project claims none.
+
+---
+
+## ADR-002 — Two predeclared kill conditions are unsatisfiable as written
+
+**Status:** accepted · **Date:** 2026-09-24 · **Written after the hold-out had been scored.**
+
+ADR-001 is above, unedited. This is an addendum, and everything in it was learned *after* the first
+hold-out score existed. Nothing here changes a threshold, because a threshold changed after seeing a
+number is not a threshold. Conditions **F** and **H** are reported **FAIL**.
+
+### F — "recall@10 ≥ 0.85, and above every predeclared baseline"
+
+Measured on the hold-out: system **1.0000**, `bm25_only` **1.0000**, `dense_only` **1.0000**,
+`ungated_rag` **1.0000**, `hybrid_without_effectivity` **0.1714**.
+
+The floor is cleared. The comparison is not, for two separate reasons:
+
+1. **`ungated_rag` cannot be beaten on retrieval, by construction.** ADR-001 defines that arm as the
+   one that removes *the gate*. It removes no retrieval component, so it runs the identical
+   retriever and returns the identical ranking. `system > ungated_rag` on a retrieval metric is not
+   a hard target, it is an impossible one. That is a defect in the criterion, written before the
+   arms existed, and it was mine.
+2. **The retrieval task saturates at k=10.** Once effectivity filtering has cut the candidate set to
+   one variant of one family at one date, ten slots are more than the task needs, and a lexical-only
+   retriever finds the supporting chunk too. On the hold-out the system is in fact *below*
+   `bm25_only` on MRR — 0.9952 against 1.0000 — because fusion demotes a top-1 lexical hit in 1 of
+   105 scored questions.
+
+**The one comparison that appeared to carry the project's argument does not survive inspection
+either.** `hybrid_without_effectivity` scores 0.1714, and that number is not "what the effectivity
+filter buys". The arm does not remove the filter: it moves `as_of` to 2099-12-31 and leaves the
+half-open predicate in place, so `valid_from <= as_of < valid_to` still excludes every superseded
+chunk — and now also excludes the *gold* chunk for every question whose answer has since been
+superseded. 0.1714 is the recall of a query issued at the wrong date. It measures a broken baseline,
+not a filter's contribution, and no claim may be built on it.
+
+### H — "ungated wrong-answer rate ≥ 5× the gated rate"
+
+Measured on the hold-out: gated **0.0000**, ungated **0.0000**. The test also requires
+`ungated > 0`, on the reasoning that an ungated baseline with no wrong answers means the corpus is
+too easy. The corpus is not too easy. The metric is blind.
+
+ADR-001 defines a wrong answer as **revision-incorrect or variant-incorrect**. The effectivity
+filter runs *before* the gate, in SQL, and constrains family, variant and as-of date. Every hold-out
+question names its variant (153 of 153), and each variant belongs to exactly one family. So every
+candidate that survives the filter is right-family, right-variant and in force — and an arm that
+removes only the gate is therefore *incapable* of producing a revision- or variant-incorrect answer.
+Its rate is zero by construction, not by merit.
+
+H asks the gate to improve a quantity the filter has already saturated. It conflates two components
+the same ADR is careful to separate everywhere else.
+
+What the gate does prevent is answering with no supporting passage at all. The ungated arm answered
+all 48 unanswerable hold-out questions; the shipped system answered none of them. That is measured
+and published as `answering.supplementary` in `artifacts/evaluation.json`, and it is **disclosed,
+not substituted**: it was declared after scoring, it carries none of the pre-registration weight of
+the twelve conditions, and H stays FAIL.
+
+### The retrieval task is saturated by construction
+
+Measured directly against the database, over all 153 hold-out questions: after the effectivity
+filter the candidate set has a **median of 9 chunks and a maximum of 10**, and **84.3% of questions
+leave fewer candidates than `top_k` = 10**.
+
+When the candidate set is smaller than k, every arm that shares the filter returns the same set and
+ranking cannot change recall@10 at all. The 1.0000 is a property of the corpus geometry, not
+evidence that retrieval works. BM25, the dense signal, fusion and the reranker are all measured on a
+task where none of them can be wrong. This is the root cause of F, and it is not fixable by tuning —
+it needs a corpus with enough in-force material per variant and date for ranking to matter.
+
+### The corpus does not meet its own predeclared contract
+
+ADR-001's size floors are cleared only by counting the EN, TR and RU renderings of the same content
+as three separate items. Measured on distinct content:
+
+| | published | distinct | ADR-001 floor | |
+|---|---|---|---|---|
+| documents | 108 | **36** | 40 | miss |
+| chunks | 1941 | **647** | 1500 | miss |
+| questions | 432 | **144** | 300 | miss |
+| unanswerable | 132 | **44** | 90 | miss |
+| supersession edges | 69 | **23** | 25 | miss |
+
+A translation of a passage is not a new passage. `corpus.json` discloses the ×3 for questions only,
+and not for documents, chunks or supersession edges. The supersession floor is missed on any
+reading. **The corpus must be regenerated,** which invalidates the committed freeze and every number
+measured against it.
+
+### Why no re-draw, and why the system was not touched
+
+A fresh hold-out would change neither result — both failures are in the criteria, not in the split —
+so re-drawing one could only look like shopping for a friendlier number. No retrieval threshold,
+rule, effectivity condition, gate condition, chunking parameter, embedding or citation rule was
+changed after the hold-out was scored.
+
+### One harness defect was corrected after scoring
+
+Wrong-answer scoring compared **bare revision labels**. There are five of them — `A`, `B`, `C`, `D`,
+`FB1` — across 108 documents in 9 families, because a revision letter identifies a document's place
+in its own family's history and nothing more. Citing another family's `C` compared equal to this
+family's in-force `C` and scored as correct. The comparison is now keyed `family/revision`.
+
+This is a correction to the *measuring instrument*, not to the system under test, and it can only
+move a measured rate upward. A change that cannot flatter a result is safe to apply to a hold-out
+that has already been scored; the reverse would not be. It is recorded here rather than folded in
+silently.

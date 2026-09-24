@@ -41,6 +41,12 @@ __all__ = ["LoadReport", "chunk_count", "content_hash", "load_chunks", "load_doc
 #: one stale embedding, and nothing security-relevant depends on it.
 _HASH_BYTES = 16
 
+#: Ids per `IN (...)` lookup, and rows per upsert statement. Both are bounded by PostgreSQL's limit
+#: of 65,535 bound parameters in one statement: a chunk row carries 21 columns, so 500 rows is
+#: 10,500 parameters with room to spare for a column being added later.
+_ID_QUERY_BATCH = 5_000
+_UPSERT_BATCH = 500
+
 
 def content_hash(text: str, *, model: str = EMBEDDING_MODEL_NAME) -> str:
     digest = blake2b(digest_size=_HASH_BYTES)
@@ -73,9 +79,7 @@ def load_documents(session: Session, documents: Sequence[Document]) -> int:
     values = [document_row_values(document) for document in documents]
     statement = insert(DocumentRow).values(values)
     updatable = {
-        column: statement.excluded[column]
-        for column in values[0]
-        if column != "document_id"
+        column: statement.excluded[column] for column in values[0] if column != "document_id"
     }
     session.execute(
         statement.on_conflict_do_update(index_elements=[DocumentRow.document_id], set_=updatable)
@@ -111,9 +115,7 @@ def load_chunks(
         for index, (row, digest) in enumerate(zip(rows, hashes, strict=True))
         if _needs_embedding(existing.get(str(row["chunk_id"])), digest)
     ]
-    new_indices = [
-        index for index, row in enumerate(rows) if str(row["chunk_id"]) not in existing
-    ]
+    new_indices = [index for index, row in enumerate(rows) if str(row["chunk_id"]) not in existing]
 
     embed_started = time.perf_counter()
     vectors = _embed_in_batches(
@@ -171,18 +173,27 @@ class _StoredState:
 
 
 def _existing_state(session: Session, chunk_ids: Sequence[str]) -> dict[str, _StoredState]:
+    """Current hash, vector presence and model for the ids being loaded.
+
+    Chunked because each id is a bound parameter and PostgreSQL's wire protocol accepts 65,535 of
+    them per statement. A corpus of 1,500 chunks never reaches that; a re-embed of a full
+    multi-language manual set does, and the failure would arrive as a protocol error in the middle
+    of a load rather than as anything a reader could act on.
+    """
     if not chunk_ids:
         return {}
-    statement = select(
-        ChunkRow.chunk_id,
-        ChunkRow.content_hash,
-        ChunkRow.embedding.is_not(None),
-        ChunkRow.embedding_model,
-    ).where(ChunkRow.chunk_id.in_(list(chunk_ids)))
-    return {
-        chunk_id: _StoredState(digest, bool(has_embedding), model)
-        for chunk_id, digest, has_embedding, model in session.execute(statement).all()
-    }
+    state: dict[str, _StoredState] = {}
+    for start in range(0, len(chunk_ids), _ID_QUERY_BATCH):
+        batch = list(chunk_ids[start : start + _ID_QUERY_BATCH])
+        statement = select(
+            ChunkRow.chunk_id,
+            ChunkRow.content_hash,
+            ChunkRow.embedding.is_not(None),
+            ChunkRow.embedding_model,
+        ).where(ChunkRow.chunk_id.in_(batch))
+        for chunk_id, digest, has_embedding, model in session.execute(statement).all():
+            state[chunk_id] = _StoredState(digest, bool(has_embedding), model)
+    return state
 
 
 def _needs_embedding(stored: _StoredState | None, digest: str) -> bool:
@@ -225,8 +236,8 @@ def _upsert_chunks(
         if include_embedding
         else {"content_hash", "content_changed_at", "embedding", "embedding_model", "embedded_at"}
     )
-    for start in range(0, len(rows), 500):
-        batch = rows[start : start + 500]
+    for start in range(0, len(rows), _UPSERT_BATCH):
+        batch = rows[start : start + _UPSERT_BATCH]
         statement = insert(ChunkRow).values(batch)
         updatable = {
             column: statement.excluded[column]

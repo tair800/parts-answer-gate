@@ -48,4 +48,6 @@ def stream(*purpose: str) -> random.Random:
     Callers pass what the decision is about, most specific last, e.g.
     ``stream("spec-number", family_id, variant_id, topic_key, "g2")``.
     """
-    return random.Random(derive_seed(*purpose))
+    # S311: bandit flags the Mersenne Twister as unsuitable for cryptography, which is the
+    # point — a reproducible stream is required and an unpredictable one would be a defect.
+    return random.Random(derive_seed(*purpose))  # noqa: S311
