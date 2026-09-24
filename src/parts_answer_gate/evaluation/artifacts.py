@@ -32,7 +32,9 @@ from parts_answer_gate.evaluation import metrics
 from parts_answer_gate.evaluation.runner import ARMS, RunSet, run_arm
 from parts_answer_gate.gate import PRIMARY_THRESHOLD_SWEEP
 from parts_answer_gate.retrieval.pipeline import Retriever
+from parts_answer_gate.store.diagnostics import build_pgvector_artifact
 from parts_answer_gate.store.effectivity import FILTER_STAGE
+from parts_answer_gate.store.lifecycle import measure_index_lifecycle
 
 __all__ = ["BuildReport", "build_all"]
 
@@ -474,6 +476,32 @@ def _retrieval_config() -> dict[str, Any]:
     }
 
 
+def _representative_query(questions: Sequence[Mapping[str, Any]]) -> Query:
+    """The query `pgvector.json` explains — taken from the hold-out, not invented for the artifact.
+
+    This matters more than it looks. A hand-written probe can be given any shape, and the shape
+    decides the plan: a query with no variant and no date scans far more rows than a real one and
+    will happily use the HNSW index, while the queries this system actually issues arrive with an
+    effectivity predicate that has already cut the candidate set down. Explaining the first and
+    publishing it as proof about the second is how kill condition K gets passed without being met.
+
+    So the artifact explains a question the evaluation itself runs: the first hold-out question
+    that names a variant, chosen by sorted id so two builds pick the same one.
+    """
+    named = sorted(
+        (q for q in questions if q.get("variant_id")), key=lambda q: str(q["question_id"])
+    )
+    chosen = named[0] if named else sorted(questions, key=lambda q: str(q["question_id"]))[0]
+    return Query(
+        text=str(chosen["text"]),
+        language=Language(chosen["language"]),
+        as_of=date.fromisoformat(str(chosen["as_of"])),
+        variant_id=chosen.get("variant_id") or None,
+        serial=chosen.get("serial"),
+        top_k=int(chosen.get("top_k", 10)),
+    )
+
+
 def _merge(first: RunSet, second: RunSet) -> RunSet:
     """Two splits of one arm as a single run set, for the guarantees that span the whole corpus."""
     if first.arm != second.arm:
@@ -539,6 +567,18 @@ def build_all(
         "multilingual.json": _multilingual(system, None),
         "determinism.json": _determinism(system, replay),
         "retrieval_config.json": _retrieval_config(),
+        # Kill condition K, and the index-lifecycle measurement, produced by the ordinary build
+        # rather than by a script somebody remembers to run.
+        #
+        # Both of these existed as helper functions for the whole of the first iteration and were
+        # called from nowhere. `pgvector.json`, `index_lifecycle.json` and `storage_comparison.json`
+        # were simply absent from the artifacts directory, so `test_K_...` failed on a missing file
+        # while a hand-run script elsewhere was producing numbers that no committed code path could
+        # reproduce. Evidence that only a person can regenerate is not evidence. ADR-002.
+        "pgvector.json": build_pgvector_artifact(
+            session, _representative_query(holdout_questions), embedder=retriever.embedder
+        ),
+        "index_lifecycle.json": measure_index_lifecycle(session, retriever.embedder),
     }
 
     written: dict[str, Path] = {}

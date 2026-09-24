@@ -45,5 +45,40 @@ services:
       - "work_mem=32MB"
     restart: unless-stopped
 
+  # The second backend, and the only reason it exists.
+  #
+  # ADR-001 records the managed vector store comparison as **delivered against a local container,
+  # not against Qdrant Cloud**: a cloud account, its credentials and its network variance are the
+  # days the blueprint says to spend elsewhere. What a second backend behind one port does buy is a
+  # real recall@10 and a real p95 over the same corpus and the same queries, which is the part of
+  # the comparison that has evidence in it. `storage_comparison.json` states in its own body that
+  # this is local and that Qdrant Cloud was never reached, so nothing downstream can read the
+  # artifact as a managed-cloud result.
+  #
+  # **Local only, and disposable.** No volume is mounted on purpose. The comparison recreates its
+  # collection from the vectors already stored in PostgreSQL on every run, so a persisted Qdrant
+  # index would only be a copy nobody rebuilt — and an index that survives a corpus change is
+  # exactly how a flattering recall figure outlives the data it was measured on.
+  #
+  # 16333/16334 rather than Qdrant's own 6333/6334: 15432/15433/15434/15437/15440 already belong to
+  # other repositories in this workspace, and this project's ports stay in one block a developer can
+  # recognise. Bound to 127.0.0.1, like PostgreSQL above, so the container is not on the network.
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    container_name: parts-answer-gate-qdrant
+    ports:
+      - "127.0.0.1:16333:6333"
+      - "127.0.0.1:16334:6334"
+    healthcheck:
+      # The image carries no curl and no wget, so the check opens the port from bash instead. A
+      # `docker compose up -d qdrant` that reported healthy while the HTTP listener was still
+      # binding would make the comparison fail with a connection error on a cold start.
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
 volumes:
   pag-pgdata:

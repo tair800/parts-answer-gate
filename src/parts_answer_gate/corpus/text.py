@@ -178,7 +178,7 @@ TOPIC_HEADING: Final[dict[str, Trilingual]] = {
     "mounting_foot_torque": Trilingual(
         en="Baseplate mounting foot bolt torque",
         tr="Taban plakası ayak cıvata torku",
-        ru="Момент затяжки болтов опорных лап",
+        ru="Момент затяжки болтов опорных лап на фундаментной плите",
     ),
     "suction_strainer": Trilingual(
         en="Suction-side strainer element",
@@ -326,9 +326,9 @@ TOPIC_BODY: Final[dict[str, Trilingual]] = {
             "{n} years. An out-of-calibration sensor reads low and hides an over-pressure event."
         ),
         tr=(
-            "{variant} basınç sensörünü her {value} bir ve emniyet ayarını aşan her olaydan sonra "
-            "kalibre edin. Sonucu {part} formuna kaydedin ve {n} yıl saklayın. Kalibrasyonu "
-            "bozulmuş sensör düşük okur ve aşırı basınç olayını gizler."
+            "{variant} basınç sensörü kalibrasyon aralığı: {value}; emniyet ayarını aşan "
+            "her olaydan sonra da kalibre edin. Sonucu {part} formuna kaydedin ve {n} yıl "
+            "saklayın. Kalibrasyonu bozulmuş sensör düşük okur ve aşırı basınç olayını gizler."
         ),
         ru=(
             "Калибруйте датчик давления {variant} каждые {value}, а также после каждого "
@@ -570,8 +570,9 @@ TOPIC_BODY: Final[dict[str, Trilingual]] = {
             "bearing and raises its running temperature."
         ),
         tr=(
-            "{variant} tahrik tarafı rulmanlarını her {value} bir ve mil keçesine ulaşan her "
-            "yıkamadan sonra gresleyin. Yalnızca {part} gres kartuşunu kullanın ve gövdede taze "
+            "{variant} tahrik tarafı rulmanlarının gresleme aralığı: {value}. Mil keçesine ulaşan "
+            "her yıkamadan sonra da gresleyin. Yalnızca {part} gres kartuşunu kullanın ve "
+            "gövdede taze "
             "gres görünene kadar tahliye portundan boşaltın. Ortam sıcaklığının {n} °C üzerinde "
             "kaldığı yerlerde aralığı yarıya indirin; bu yükte aşırı gresleme rulmanı döver ve "
             "çalışma sıcaklığını yükseltir."
@@ -594,8 +595,8 @@ TOPIC_BODY: Final[dict[str, Trilingual]] = {
             "inspection has been completed."
         ),
         tr=(
-            "{variant} planlı muayenesini, son onarımdan değil devreye alma tarihinden itibaren "
-            "sayarak her {value} bir yapın. Bulguları {part} kontrol listesine kaydedin ve imzalı "
+            "{variant} planlı muayene aralığı: {value}, son onarımdan değil devreye alma "
+            "tarihinden itibaren sayılır. Bulguları {part} kontrol listesine kaydedin ve imzalı "
             "nüshayı {n} yıl saklayın. Aralığı aşacak şekilde ertelenen muayene önceki kaydı "
             "geçersiz kılar ve ünite, tam bir muayene tamamlanana kadar muayene edilmemiş "
             "sayılır."
@@ -634,8 +635,8 @@ TOPIC_BODY: Final[dict[str, Trilingual]] = {
     "sensor_supply_voltage": Trilingual(
         en=(
             "The sensor supply rail of the {variant} is regulated to {value} at the module "
-            "terminal strip. Measure it at the sensor connector with harness {part} fitted, since "
-            "the drop across the loom is what the transducer actually sees. A rail that collapses "
+            "terminal strip. Measure it at the sensor connector with harness {part} fitted; "
+            "the transducer sees this rail less the drop across the loom. A rail that collapses "
             "under the full {n} mA sensor load points to the regulator, not to the sensor."
         ),
         tr=(

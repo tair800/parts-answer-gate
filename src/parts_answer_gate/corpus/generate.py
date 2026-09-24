@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from parts_answer_gate.corpus.builder import BuiltCorpus, BuiltDocument, build_corpus
-from parts_answer_gate.corpus.catalogue import FAMILIES
+from parts_answer_gate.corpus.catalogue import FAMILIES, TOPICS, Unit, spec_options
 from parts_answer_gate.corpus.questions import (
     UNANSWERABLE_KINDS,
     QuestionSeed,
@@ -131,17 +131,67 @@ def _check_denormalised_validity(documents: Sequence[BuiltDocument]) -> None:
                 )
 
 
-def _check_part_numbers(documents: Sequence[BuiltDocument]) -> int:
+def _check_part_numbers(corpus: BuiltCorpus) -> int:
     """Every part-number-shaped token in the corpus must be one the generator issued.
 
     A token that looks like a part number but was not issued would be evidence the templates are
     producing identifiers by accident, and kill condition C would then be checking a mixture of
     real identifiers and coincidences.
+
+    This function previously stated that invariant in its docstring and never evaluated it: it
+    accumulated the tokens found in the text, returned how many there were, and never consulted
+    `BuiltCorpus.issued_parts` at all. The data happened to satisfy the invariant, so nothing was
+    wrong except that nothing was checked — which is the arrangement ADR-001's falsifiability
+    clause exists to rule out. ADR-002.
     """
     seen: set[str] = set()
-    for built in documents:
+    for built in corpus.documents:
         seen |= part_numbers_in(built.text)
+
+    invented = seen - corpus.issued_parts
+    if invented:
+        raise ValueError(
+            f"{len(invented)} part-number-shaped tokens appear in the corpus text that the "
+            f"generator never issued, so kill condition C would be scoring coincidences as "
+            f"identifiers: {sorted(invented)[:10]}"
+        )
     return len(seen)
+
+
+_MAX_VARIANTS_PER_FAMILY = max(len(family.variants) for family in FAMILIES)
+
+
+def _check_aux_collisions() -> int:
+    """No passage may state its auxiliary figure and its answer as the same number.
+
+    A body reads "tighten to {value} ... re-check after {n} operating hours". If `{value}` renders
+    as 40 Nm and `{n}` is also 40, the passage carries one number where the reader needs two, the
+    expected answer span stops being unambiguous, and a retriever that found the wrong figure
+    scores as correct. The content review that produced ADR-002's corpus found five topics whose
+    auxiliary choices overlapped their own value band exactly this way.
+
+    Checked here rather than left to review, because the next topic somebody adds will not get a
+    review.
+    """
+    collisions: list[str] = []
+    for topic in TOPICS:
+        if topic.unit is Unit.PART:
+            # The answer is a part number, so no integer auxiliary can collide with it.
+            continue
+        for variant_index in range(_MAX_VARIANTS_PER_FAMILY):
+            band = set(spec_options(topic.unit, variant_index))
+            shared = band & set(topic.aux_choices)
+            if shared:
+                collisions.append(
+                    f"{topic.key} at variant position {variant_index}: {sorted(shared)} is both a "
+                    f"value and an auxiliary figure"
+                )
+    if collisions:
+        raise ValueError(
+            "a passage would state its answer and its auxiliary figure as the same number:\n  "
+            + "\n  ".join(collisions)
+        )
+    return len(TOPICS)
 
 
 def _check_answerable(seeds: Sequence[QuestionSeed], chunks: dict[str, Chunk]) -> None:
@@ -429,7 +479,8 @@ def build() -> GeneratedCorpus:
     corpus: BuiltCorpus = build_corpus()
     offsets_checked = _check_offsets(corpus.documents)
     _check_denormalised_validity(corpus.documents)
-    distinct_parts = _check_part_numbers(corpus.documents)
+    distinct_parts = _check_part_numbers(corpus)
+    _check_aux_collisions()
 
     by_id = {chunk.chunk_id: chunk for built in corpus.documents for chunk in built.chunks}
     seeds = build_questions(corpus)

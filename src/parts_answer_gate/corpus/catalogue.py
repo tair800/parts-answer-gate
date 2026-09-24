@@ -52,6 +52,9 @@ class Unit(enum.StrEnum):
     LITRES = "litres"
     MONTHS = "months"
     BAR = "bar"
+    #: Pressures that are genuinely low — case drain, crankcase — which share `bar` as a written
+    #: unit with `BAR` but must not share its 150-310 band.
+    BAR_LOW = "bar_low"
     AMPS = "amps"
     VOLTS = "volts"
     GRADE = "grade"
@@ -75,12 +78,12 @@ class Topic:
 
 
 TOPICS: Final = (
-    Topic("drive_coupling_torque", Unit.TORQUE, False, (50, 100, 150, 250)),
+    Topic("drive_coupling_torque", Unit.TORQUE, False, (150, 250, 400, 600)),
     Topic("filter_element", Unit.PART, False, (250, 500, 1000)),
-    Topic("reservoir_capacity", Unit.LITRES, False, (55, 60, 65, 70)),
+    Topic("reservoir_capacity", Unit.LITRES, False, (82, 88, 94)),
     Topic("seal_kit", Unit.PART, False, (16, 20, 25)),
     Topic("calibration_interval", Unit.MONTHS, False, (2, 3, 4)),
-    Topic("control_fuse", Unit.AMPS, False, (12, 24, 48)),
+    Topic("control_fuse", Unit.AMPS, False, (230, 400, 690)),
     Topic("pump_shaft_bearing", Unit.PART, False, (90, 100, 110, 120)),
     Topic("relief_valve_setting", Unit.BAR, True, (40, 60, 80, 120)),
     Topic("gearbox_oil_grade", Unit.GRADE, False, (10, 15, 20, 25)),
@@ -92,21 +95,21 @@ TOPICS: Final = (
     # BM25 alone reached recall@10 of 1.0000 and there was nothing left for ranking
     # to do. Three torque topics, three filter topics and three sealing topics mean a
     # question naming one of them has near neighbours it must be ranked above.
-    Topic("flange_bolt_torque", Unit.TORQUE, False, (60, 120, 180, 300)),
-    Topic("mounting_foot_torque", Unit.TORQUE, False, (40, 80, 160, 240)),
-    Topic("suction_strainer", Unit.PART, False, (125, 250, 400)),
-    Topic("breather_filter", Unit.PART, False, (500, 750, 1000)),
-    Topic("shaft_seal_kit", Unit.PART, False, (12, 18, 24)),
-    Topic("valve_seal_kit", Unit.PART, False, (15, 22, 30)),
-    Topic("lubrication_interval", Unit.MONTHS, False, (3, 6, 9)),
-    Topic("inspection_interval", Unit.MONTHS, False, (6, 12, 18)),
-    Topic("heater_fuse", Unit.AMPS, False, (8, 16, 32)),
-    Topic("sensor_supply_voltage", Unit.VOLTS, False, (5, 10, 20)),
-    Topic("idler_bearing", Unit.PART, False, (80, 95, 105, 115)),
-    Topic("pilot_pressure_setting", Unit.BAR, False, (30, 45, 70, 90)),
-    Topic("case_drain_limit", Unit.BAR, False, (20, 35, 50)),
-    Topic("coolant_capacity", Unit.LITRES, False, (35, 45, 55, 65)),
-    Topic("retrofit_bracket_note", Unit.PART, True, (2, 4, 6)),
+    Topic("flange_bolt_torque", Unit.TORQUE, False, (45, 55, 65)),
+    Topic("mounting_foot_torque", Unit.TORQUE, False, (150, 250, 500)),
+    Topic("suction_strainer", Unit.PART, False, (250, 500, 1000)),
+    Topic("breather_filter", Unit.PART, False, (500, 750, 1500)),
+    Topic("shaft_seal_kit", Unit.PART, False, (85, 95, 105)),
+    Topic("valve_seal_kit", Unit.PART, False, (12, 18, 25)),
+    Topic("lubrication_interval", Unit.MONTHS, False, (35, 40, 45)),
+    Topic("inspection_interval", Unit.MONTHS, False, (5, 7, 10)),
+    Topic("heater_fuse", Unit.AMPS, False, (230, 400, 690)),
+    Topic("sensor_supply_voltage", Unit.VOLTS, False, (100, 150, 250)),
+    Topic("idler_bearing", Unit.PART, False, (4000, 6000, 8000)),
+    Topic("pilot_pressure_setting", Unit.BAR, False, (12, 18, 25)),
+    Topic("case_drain_limit", Unit.BAR_LOW, False, (80, 90, 100)),
+    Topic("coolant_capacity", Unit.LITRES, False, (82, 88, 94)),
+    Topic("retrofit_bracket_note", Unit.PART, True, (2, 3, 4)),
 )
 
 #: Topics whose value is a measurement rather than a part number. Only these are used for the
@@ -327,6 +330,7 @@ _BANDS: Final[dict[Unit, tuple[int, int, int, int]]] = {
     Unit.LITRES: (40, 30, 5, 6),
     Unit.MONTHS: (6, 9, 3, 2),
     Unit.BAR: (150, 60, 10, 5),
+    Unit.BAR_LOW: (2, 3, 1, 2),
     Unit.AMPS: (4, 8, 2, 2),
     Unit.VOLTS: (24, 24, 6, 3),
     Unit.GRADE: (32, 46, 14, 2),
@@ -350,6 +354,7 @@ _UNIT_TEXT: Final[dict[Unit, Trilingual]] = {
     Unit.TORQUE: Trilingual(en="{n} Nm", tr="{n} Nm", ru="{n} Н·м"),
     Unit.LITRES: Trilingual(en="{n} L", tr="{n} L", ru="{n} л"),
     Unit.BAR: Trilingual(en="{n} bar", tr="{n} bar", ru="{n} бар"),
+    Unit.BAR_LOW: Trilingual(en="{n} bar", tr="{n} bar", ru="{n} бар"),
     Unit.AMPS: Trilingual(en="{n} A", tr="{n} A", ru="{n} A"),
     Unit.VOLTS: Trilingual(en="{n} V", tr="{n} V", ru="{n} В"),
     Unit.GRADE: Trilingual(en="ISO VG {n}", tr="ISO VG {n}", ru="ISO VG {n}"),

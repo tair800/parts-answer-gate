@@ -150,9 +150,7 @@ class Retriever:
         call_started = time.perf_counter()
         timings: dict[str, float] = {}
         depth = max(query.top_k * STAGE_DEPTH_MULTIPLIER, MIN_STAGE_DEPTH)
-        filters = candidate_filter(
-            query, languages=languages, apply_effectivity=apply_effectivity
-        )
+        filters = candidate_filter(query, languages=languages, apply_effectivity=apply_effectivity)
 
         exact_ids, exact_terms = self._exact_stage(session, query, filters, timings)
         candidates = _timed(timings, "candidates", lambda: fetch_candidates(session, filters))
