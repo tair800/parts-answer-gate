@@ -49,6 +49,22 @@ def main(argv: list[str] | None = None) -> int:
     for chunk in chunks:
         by_hash.setdefault(content_hash(str(chunk["text"])), str(chunk["text"]))
 
+    # The corpus's own questions, cached alongside the passages.
+    #
+    # `Embedder.embed_query` is `embed_documents([text])[0]` — this model has no query or passage
+    # prefix — so the vector for a question is the same vector whenever it is computed. Caching it
+    # lets a memory-constrained deployment run **real** hybrid retrieval for every question the
+    # corpus contains, rather than loading a 671MB session it cannot hold. It changes nothing about
+    # what retrieval does; it moves where the arithmetic happens, exactly as it already does for the
+    # passages.
+    questions_path = args.corpus / "questions.json"
+    if questions_path.is_file():
+        raw_questions = json.loads(questions_path.read_text(encoding="utf-8"))
+        questions = raw_questions["questions"] if isinstance(raw_questions, dict) else raw_questions
+        for question in questions:
+            by_hash.setdefault(content_hash(str(question["text"])), str(question["text"]))
+        print(f"[precompute] {len(questions)} question texts included")
+
     hashes = sorted(by_hash)
     texts = [by_hash[digest] for digest in hashes]
     print(f"[precompute] {len(chunks)} chunks, {len(hashes)} distinct texts")

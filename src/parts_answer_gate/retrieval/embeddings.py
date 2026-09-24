@@ -31,6 +31,7 @@ __all__ = [
     "EMBEDDING_THREADS",
     "DocumentEncoder",
     "Embedder",
+    "TextEncoder",
     "cosine_similarity",
 ]
 
@@ -73,6 +74,19 @@ EMBEDDING_POLICY: Final[dict[str, Any]] = {
     ),
     "distance": "cosine",
 }
+
+
+class TextEncoder(Protocol):
+    """What the retrieval path needs: one method for passages, one for a question.
+
+    A protocol because two unrelated classes satisfy it — `Embedder`, which opens an ONNX session,
+    and `retrieval.precomputed.CachedEmbedder`, which serves vectors computed at build time and on
+    a constrained instance never opens one at all.
+    """
+
+    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]: ...
+
+    def embed_query(self, text: str) -> list[float]: ...
 
 
 class DocumentEncoder(Protocol):

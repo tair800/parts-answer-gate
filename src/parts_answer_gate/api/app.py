@@ -22,10 +22,11 @@ import json
 import os
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
+from functools import cache
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi import Query as QueryParam
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -37,6 +38,11 @@ from parts_answer_gate.answerer import ExtractiveAnswerer, PostValidatedAnswerer
 from parts_answer_gate.config import Settings, get_settings
 from parts_answer_gate.domain import Answer, GateOutcome, Language, Query
 from parts_answer_gate.retrieval.pipeline import Retriever
+from parts_answer_gate.retrieval.precomputed import (
+    CachedEmbedder,
+    QueryNotPrecomputedError,
+    load_cache,
+)
 from parts_answer_gate.store.engine import DATABASE_URL_ENV, build_engine, session_scope
 from parts_answer_gate.store.schema import ChunkRow, DocumentRow
 
@@ -51,10 +57,6 @@ app = FastAPI(
     ),
     version="0.1.0",
 )
-
-#: Built once. The encoder loads ~220MB of ONNX and holding it per request would make every question
-#: pay for it.
-_RETRIEVER = Retriever()
 
 #: The extractive arm, wrapped in the post-validator. Wrapped even though the extractive answerer
 #: structurally cannot emit an ungrounded part number: the wrapper is what makes the guarantee
@@ -86,6 +88,37 @@ def db(config: Annotated[Settings, Depends(settings)]) -> Iterator[Session]:
     """A session, or an error. Used where a database is genuinely required."""
     with session_scope(build_engine(config.database_url)) as session:
         yield session
+
+
+#: Set on a deployment whose instance cannot hold the encoder. The model is multilingual with a
+#: 250,000-token vocabulary, so its loaded session measures about 671MB resident and a 512MB
+#: instance is killed the moment a query touches it.
+#:
+#: With this set the service serves query vectors from the same build-time cache the index was
+#: loaded from. `Embedder.embed_query` is `embed_documents([text])[0]` — no query or passage prefix
+#: — so a cached vector is bit-identical to a freshly computed one, and **retrieval is unchanged**:
+#: the same hybrid search over the same pgvector index, the same fusion, the same gate. What
+#: changes is only where the arithmetic happened, exactly as it already has for every passage.
+#:
+#: The cost is real and is stated on the page rather than hidden: a question whose text is not in
+#: the corpus has no precomputed vector, and such a question is refused with an explanation instead
+#: of being answered from a partial signal.
+QUERY_CACHE_ONLY_ENV = "PAG_QUERY_CACHE_ONLY"
+
+
+@cache
+def _retriever(config: Settings) -> Retriever:
+    """One retriever for the process, holding one encoder.
+
+    Cached because `Embedder` loads an ONNX session on first use and a per-request instance would
+    load it per request. On the constrained deployment it holds a `CachedEmbedder` that never opens
+    a session at all.
+    """
+    if os.environ.get(QUERY_CACHE_ONLY_ENV, "").lower() in {"1", "true", "yes"}:
+        vectors = load_cache(Path(config.corpus_dir))
+        if vectors:
+            return Retriever(CachedEmbedder(vectors, encoder_allowed=False))
+    return Retriever()
 
 
 def has_configured_database() -> bool:
@@ -398,13 +431,13 @@ def healthz(
     )
 
 
-def _answer(session: Session, query: Query) -> tuple[Answer, Any]:
+def _answer(session: Session, query: Query, config: Settings) -> tuple[Answer, Any]:
     """The whole pipeline, in the order ADR-001 fixes.
 
     Written as one function rather than spread across handlers so the ordering is readable in one
     place: the gate decides, and only then is an answerer asked for anything.
     """
-    result = _RETRIEVER.retrieve(session, query)
+    result = _retriever(config).retrieve(session, query)
     decision = answer_gate.decide(query, result.chunks)
 
     if decision.outcome is GateOutcome.ABSTAIN:
@@ -449,6 +482,7 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
     asked: Query | None = None
     answer: Answer | None = None
     retrieved: Any = ()
+    uncached_question: str | None = None
 
     if q and session is not None:
         asked = Query(
@@ -459,8 +493,15 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
             variant_id=variant or None,
             serial=serial,
         )
-        answer, result = _answer(session, asked)
-        retrieved = result.chunks
+        try:
+            answer, result = _answer(session, asked, config)
+            retrieved = result.chunks
+        except QueryNotPrecomputedError:
+            # This instance serves precomputed query vectors only. Rather than answer from a
+            # partial signal -- which would be a different system from the measured one -- it says
+            # so. See `QUERY_CACHE_ONLY_ENV`.
+            asked = None
+            uncached_question = q
 
     return TEMPLATES.TemplateResponse(
         request,
@@ -474,6 +515,7 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
             default_as_of=today.isoformat(),
             examples=_EXAMPLES,
             index_available=session is not None,
+            uncached_question=uncached_question,
         ),
     )
 
@@ -481,6 +523,7 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
 @app.get("/api/ask")
 def ask_json(  # noqa: PLR0917 - injected by FastAPI, not called positionally
     session: Annotated[Session, Depends(db)],
+    config: Annotated[Settings, Depends(settings)],
     q: Annotated[str, QueryParam()],
     variant: Annotated[str | None, QueryParam()] = None,
     serial: Annotated[int | None, QueryParam()] = None,
@@ -501,7 +544,18 @@ def ask_json(  # noqa: PLR0917 - injected by FastAPI, not called positionally
         variant_id=variant or None,
         serial=serial,
     )
-    answer, _ = _answer(session, query)
+    try:
+        answer, _ = _answer(session, query, config)
+    except QueryNotPrecomputedError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "This public instance serves precomputed query vectors only, because the "
+                "multilingual encoder needs about 671MB and the free tier provides 512. Every "
+                "question in the corpus is answerable here against the real pgvector index; free "
+                "text outside it is not. Clone the repository and run `make console` for that."
+            ),
+        ) from exc
     return answer
 
 

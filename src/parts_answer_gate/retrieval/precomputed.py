@@ -18,8 +18,12 @@ the chunk id is stable across an edit and the whole point of the hash is that it
 change the ranking in the tail, and a deployment whose ordering differs from the evaluated one is
 not the evaluated system. Nineteen megabytes is the right trade.
 
-A miss falls through to the real encoder rather than raising. Query embedding is a miss by
-definition — nobody precomputes a question nobody has asked yet — and the service needs it to work.
+A miss falls through to the real encoder rather than raising, **unless the deployment says the
+encoder will not fit**. `Embedder.embed_query(text)` is `embed_documents([text])[0]` — this model
+has no query or passage prefix — so a question that happens to be in the cache gets the identical
+vector without opening a session, and `encoder_allowed=False` turns a miss into a stated refusal
+rather than a process the platform kills. `tests/test_precomputed.py` holds both halves of that
+claim to a real encoder.
 """
 
 from __future__ import annotations
@@ -33,7 +37,24 @@ import numpy as np
 
 from parts_answer_gate.retrieval.embeddings import EMBEDDING_DIM, Embedder
 
-__all__ = ["HASH_FILE", "VECTOR_FILE", "CachedEmbedder", "load_cache", "write_cache"]
+__all__ = [
+    "HASH_FILE",
+    "VECTOR_FILE",
+    "CachedEmbedder",
+    "QueryNotPrecomputedError",
+    "load_cache",
+    "write_cache",
+]
+
+
+class QueryNotPrecomputedError(LookupError):
+    """Asked to encode text this instance has no precomputed vector for, with no encoder allowed.
+
+    A distinct type rather than a generic failure because the caller has something specific and
+    true to say about it: not "retrieval failed" and not "no results", but "this deployment cannot
+    encode new text, and here is what it can answer".
+    """
+
 
 #: Beside the corpus, because the two are only meaningful together.
 VECTOR_FILE = "embeddings.f32.npy"
@@ -92,9 +113,16 @@ class CachedEmbedder:
     The real encoder is constructed only when something misses.
     """
 
-    def __init__(self, cache: dict[str, list[float]], *, fallback: Embedder | None = None) -> None:
+    def __init__(
+        self,
+        cache: dict[str, list[float]],
+        *,
+        fallback: Embedder | None = None,
+        encoder_allowed: bool = True,
+    ) -> None:
         self._cache = cache
         self._fallback = fallback
+        self.encoder_allowed = encoder_allowed
         self._hits = 0
         self._misses = 0
 
@@ -132,7 +160,36 @@ class CachedEmbedder:
         ]
 
     def embed_query(self, text: str) -> list[float]:
-        """Always the real encoder. A question nobody has asked has no precomputed vector."""
+        """The cache first, then the encoder — and on a constrained instance, only the cache.
+
+        `Embedder.embed_query` is literally `embed_documents([text])[0]`: this model has no query
+        or passage prefix, so a vector computed at build time for a given string is **the same
+        vector**, bit for bit, as one computed now. Serving it from the cache therefore changes
+        nothing about retrieval — the same hybrid search, the same fusion, the same gate — and is
+        purely a question of where the arithmetic happened.
+
+        That matters because the arithmetic is expensive in one specific way. This is a multilingual
+        model with a 250,000-token vocabulary, so its embedding table alone is about 384MB and the
+        loaded session measures **671MB resident**. The free instance this is deployed to has 512.
+        `encoder_allowed=False` is how a deployment says "serve what was precomputed and tell the
+        visitor the truth about anything else", instead of loading a model that will be killed.
+
+        Raises `QueryNotPrecomputedError` on a miss when the encoder is not allowed, so the caller
+        can say which question it cannot answer and why. It does not return a wrong vector, and it
+        does not return an empty result that would read as a retrieval failure.
+        """
+        from parts_answer_gate.store.loader import content_hash  # noqa: PLC0415 - cycle
+
+        cached = self._cache.get(content_hash(text))
+        if cached is not None:
+            self._hits += 1
+            return cached
+        self._misses += 1
+        if not self.encoder_allowed:
+            raise QueryNotPrecomputedError(
+                "this instance serves precomputed query vectors only and has no vector for this "
+                "text"
+            )
         return self._encoder().embed_query(text)
 
     def measured_norm(self, probe: str = "hydraulic pump seal replacement") -> float:

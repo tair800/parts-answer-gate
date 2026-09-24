@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from parts_answer_gate.domain import Chunk, Language, Query, RetrievedChunk
 from parts_answer_gate.retrieval.bm25 import bm25_scores
 from parts_answer_gate.retrieval.dense import DenseHit, dense_search, dense_sql
-from parts_answer_gate.retrieval.embeddings import Embedder
+from parts_answer_gate.retrieval.embeddings import Embedder, TextEncoder
 from parts_answer_gate.retrieval.fusion import order_by_score, reciprocal_rank_fusion
 from parts_answer_gate.retrieval.rerank import RerankCandidate, rerank
 from parts_answer_gate.store.effectivity import FILTER_STAGE, CandidateFilter, candidate_filter
@@ -96,7 +96,7 @@ class RetrievalResult:
 class Retriever:
     """Holds the encoder; takes a `Session` per call so the caller owns the transaction."""
 
-    def __init__(self, embedder: Embedder | None = None) -> None:
+    def __init__(self, embedder: TextEncoder | None = None) -> None:
         self.embedder = embedder or Embedder()
 
     # ------------------------------------------------------------------ the deterministic stage

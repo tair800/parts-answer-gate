@@ -743,6 +743,13 @@ def build_all(
     # with itself: a determinism check that hashed one result twice would pass unconditionally.
     replay = run_arm(retriever, session, holdout_questions, in_force, "system")
 
+    # The diagnostics below measure the **encoder itself** -- its probe norm, what it costs to
+    # re-embed a changed chunk, the vectors a second backend is loaded with -- so they need a real
+    # one rather than whatever the retriever happens to be holding. On the constrained deployment
+    # the retriever serves precomputed vectors and never opens a session; the evaluation never runs
+    # there, and this makes that explicit rather than depending on it.
+    encoder = retriever.embedder if isinstance(retriever.embedder, Embedder) else Embedder()
+
     system = holdout_arms["system"]
 
     # The absolute-zero guarantees — C, D, E, I and the Article 50 label — are properties of the
@@ -773,7 +780,7 @@ def build_all(
         # hybrid and that, which is the number the blueprint asks for.
         "multilingual.json": _multilingual(system, holdout_arms["bm25_only"]),
         "determinism.json": _determinism(system, replay),
-        "retrieval_config.json": _retrieval_config(retriever.embedder),
+        "retrieval_config.json": _retrieval_config(encoder),
         # Kill condition K, and the index-lifecycle measurement, produced by the ordinary build
         # rather than by a script somebody remembers to run.
         #
@@ -783,9 +790,9 @@ def build_all(
         # while a hand-run script elsewhere was producing numbers that no committed code path could
         # reproduce. Evidence that only a person can regenerate is not evidence. ADR-002.
         "pgvector.json": build_pgvector_artifact(
-            session, _representative_query(holdout_questions), embedder=retriever.embedder
+            session, _representative_query(holdout_questions), embedder=encoder
         ),
-        "index_lifecycle.json": measure_index_lifecycle(session, retriever.embedder),
+        "index_lifecycle.json": measure_index_lifecycle(session, encoder),
         # The managed-vector comparison, against a **local** Qdrant container. The artifact states
         # that in its own body, and `qdrant_cloud_tested` is false: nothing in this repository has
         # ever reached Qdrant Cloud, and the cost column is published-list-price arithmetic rather
@@ -793,7 +800,7 @@ def build_all(
         # one-backend artifact, because a comparison with one side missing that still passes its
         # test is worse than a failing build.
         "storage_comparison.json": build_storage_comparison_artifact(
-            session, holdout_questions, embedder=retriever.embedder
+            session, holdout_questions, embedder=encoder
         ),
     }
 

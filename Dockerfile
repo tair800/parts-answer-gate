@@ -95,7 +95,13 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     # extra thread takes its own arena, and the process is killed for memory long before the extra
     # cores make a single query faster. The batch path that encodes the whole corpus runs at build
     # time, on a builder, where none of this applies.
-    PAG_EMBEDDING_THREADS=1 \
+    # Query vectors come from the build-time cache rather than from a loaded encoder. This model
+    # is multilingual with a 250,000-token vocabulary, so its session measures about 671MB resident
+    # and the free instance this image targets has 512 -- it was killed the moment a query touched
+    # it. `embed_query` is `embed_documents([text])[0]` here, with no query or passage prefix, so a
+    # cached vector is bit-identical and retrieval is unchanged; what changes is where the
+    # arithmetic happened, exactly as it already had for every passage in the index.
+    PAG_QUERY_CACHE_ONLY=true     PAG_EMBEDDING_THREADS=1 \
     OMP_NUM_THREADS=1 \
     OPENBLAS_NUM_THREADS=1 \
     MKL_NUM_THREADS=1 \

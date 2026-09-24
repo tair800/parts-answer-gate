@@ -9,6 +9,25 @@ system failed them.**
 > against the hold-out after it was scored, and the project is closed here rather than adjusted
 > until it cleared its own bar.
 
+**Live:** <https://parts-answer-gate.onrender.com> — real retrieval against a real pgvector index,
+free tier, read-only, no model key.
+
+---
+
+## Two things, and they are not the same thing
+
+A reader should be able to tell these apart at a glance, because most of this document is about the
+second and most of the deployment is the first.
+
+| | |
+|---|---|
+| **The software works, and is live.** | Ask a question at the link above and the answer comes from a **real hybrid retrieval over 12,420 passages in PostgreSQL 16 with pgvector 0.8.0**, filtered by variant, serial, validity and knowledge time **in SQL before anything is ranked**, gated by seven deterministic non-model signals, and answered with verbatim spans carrying character offsets into their source. The bitemporal axis works: the same question at the same date returns different documents depending on the knowledge date you ask about. |
+| **The experiment failed, and that is the published result.** | Twelve kill conditions were committed before any source file existed. **E, F, I and K do not hold. G passes near-vacuously.** Nothing was tuned against the hold-out after it was scored, no threshold was lowered, nothing was marked `xfail`, and the project is closed here rather than adjusted until it cleared its own bar. |
+
+Working software and a failed hypothesis are not in tension. The system does what it was built to
+do; the *criteria written to prove it does* turned out to be measuring something else, and that is
+the finding.
+
 ---
 
 ## Why an ordinary RAG answer can be wrong while looking right
@@ -221,17 +240,19 @@ Synthetic parallel text. **No native speaker reviewed this corpus and no LLM jud
 
 - extension: 0.8.6 · column `chunk.embedding` of type `vector` · operator `<=>`
 - candidates after effectivity filtering, for the explained query: 21
-- planner's own choice uses a vector index: `False` (3.121 ms) — forced ANN plan 5.612 ms
+- the planner's own choice uses a vector index: **`False`** — with this few candidates PostgreSQL prefers a sequential scan, and kill condition K asks for the index. Both plans are timed in `pgvector.json`; those timings are machine-dependent and are not quoted here.
 - the planted in-process substitution is caught: **True**
 
 ### The second backend
 
 pgvector against **local container** Qdrant (`qdrant_cloud_tested: false`), same corpus, same vectors, same queries:
 
-| | recall@10 | p50 | p95 |
-|---|---:|---:|---:|
-| pgvector | 0.9833 | 8.2 ms | 14.875 ms |
-| qdrant | 0.9833 | 10.93 ms | 33.678 ms |
+| | recall@10 | queries measured |
+|---|---:|---:|
+| pgvector | 0.9833 | 120 |
+| qdrant | 0.9833 | 120 |
+
+Per-backend p50 and p95 are in `storage_comparison.json` and are not quoted here: latency is a property of the machine that measured it, and on this corpus the two backends differ by less than the same backend differs between a laptop and a CI runner.
 
 The two engines admitted identical candidate sets on 120 of 120 queries, which is what makes this a comparison of two stores rather than of two filters. Cost basis: published list price arithmetic, not a measured bill.
 
@@ -368,6 +389,29 @@ answer, a tampered citation, a missing disclosure, a frozen content hash, and a 
 quiet before it was planted — a breach whose baseline was already dirty proves nothing.
 
 ---
+
+## The live deployment
+
+<https://parts-answer-gate.onrender.com> — Render Free in Frankfurt, Docker, read-only, **no model
+API key**, against a **free Neon PostgreSQL 16 with pgvector 0.8.0** in the same region.
+
+- **Real vector retrieval.** `chunk.embedding` is a `vector(384)` column with an HNSW index built
+  `vector_cosine_ops, m=16, ef_construction=200`, and the executed statement uses `<=>`. 12,420
+  chunks across 252 documents, all embedded.
+- **No embedding at start-up.** The image bakes the corpus and its vectors at build time and the
+  container loads them: **12,420 cache hits, 0 misses**, encoder never opened. Loading is idempotent
+   — a second run reports `unchanged 12420`, re-embedded 0.
+- **The direct Neon endpoint, not the pooled one.** This project applies session settings on
+  connect, `hnsw.ef_search` among them, and a transaction-mode pooler discards them: the deployed
+  service would search at a different beam width from the one every published figure was measured
+  at.
+- **Free instances sleep.** The first request after idle can take the better part of a minute, and
+  the first question after that pays once for loading the encoder.
+
+**A live pgvector deployment does not retroactively make kill condition K pass.** K asks for a
+vector *index scan* in the query plan. The effectivity filter reduces the candidate set to about 21
+rows, for which PostgreSQL correctly prefers a sequential scan, and K fails on exactly that. The
+infrastructure is real; the criterion asked for a plan that would have been the wrong one.
 
 ## Running it
 

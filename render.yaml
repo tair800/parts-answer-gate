@@ -49,6 +49,14 @@ services:
         value: "true"
       - key: PAG_ENVIRONMENT
         value: public-demo
+      # The instance has 512MB and the multilingual encoder needs about 671MB resident, so query
+      # vectors are served from the same build-time cache the index was loaded from. Retrieval is
+      # unchanged -- the same hybrid search over the same pgvector index, the same gate, the same
+      # citations -- because a vector computed at build time is bit-identical to one computed now.
+      # The cost is that free text outside the corpus has no vector, and the page says so rather
+      # than answering from a partial signal.
+      - key: PAG_QUERY_CACHE_ONLY
+        value: "true"
       # The database. `sync: false` means the blueprint declares that this variable exists and
       # leaves its value to the dashboard, which is the only correct place for a credential: a DSN
       # written here would be committed, and every deployment of this blueprint would carry it.

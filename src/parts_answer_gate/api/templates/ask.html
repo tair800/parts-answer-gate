@@ -26,6 +26,23 @@
     </p>
   </div>
   {% endif %}
+  {% if uncached_question %}
+  <div class="panel" style="border-color:#7f1d1d">
+    <strong>This public instance cannot encode that question.</strong>
+    <p class="muted" style="margin:8px 0 0; max-width:74ch">
+      Retrieval here is real — a live pgvector index of 12,420 passages on PostgreSQL 16 — but the
+      multilingual encoder needs about <strong>671&nbsp;MB</strong> resident and the free tier
+      provides 512. So this deployment serves query vectors computed at build time, which covers
+      <strong>every question in the corpus</strong> and not free text outside it. The vector is
+      identical either way; only the machine that computed it differs.
+      <br><br>
+      Use one of the examples below, pick a question from
+      <a href="/failures">the failure cases</a>, or clone the repository and run
+      <code>make db &amp;&amp; make corpus &amp;&amp; make index &amp;&amp; make console</code> to
+      ask anything at all.
+    </p>
+  </div>
+  {% endif %}
   <form class="ask" method="get" action="/">
     <input type="text" name="q" placeholder="e.g. What is the torque for the impeller retaining bolt?"
            value="{{ asked.text if asked else '' }}" required>

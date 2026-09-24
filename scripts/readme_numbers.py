@@ -10,6 +10,13 @@ is exactly how that rule gets broken without anybody deciding to break it.
 So every figure the README quotes is emitted here from `artifacts/*.json`, wrapped in a marked
 block, and `--check` compares the block in the file against a freshly generated one. CI runs the
 check. A number that changes in the evidence and not in the README fails the build.
+
+**Timings are deliberately excluded from the block.** Latency is a property of the machine that
+measured it, not of this system: p50 and p95 differ between a laptop and a CI runner by more than
+the two storage backends differ from each other. Including them made `--check` fail on every CI run
+for a reason that had nothing to do with the README being wrong, which would have taught everyone
+to ignore the check — the exact failure mode it exists to prevent. They are published in
+`storage_comparison.json` and `pgvector.json`, beside the run that produced them.
 """
 
 from __future__ import annotations
@@ -292,10 +299,11 @@ def block() -> str:
         f"`{pgvector['column_type']}` · operator `{pgvector['distance_operator']}`",
         f"- candidates after effectivity filtering, for the explained query: "
         f"{pgvector['candidates_after_effectivity_filter']}",
-        f"- planner's own choice uses a vector index: "
-        f"`{pgvector['plan_choice']['planner_default_uses_index']}` "
-        f"({pgvector['plan_choice']['planner_default_median_ms']} ms) — forced ANN plan "
-        f"{pgvector['plan_choice']['ann_plan_median_ms']} ms",
+        f"- the planner's own choice uses a vector index: "
+        f"**`{pgvector['plan_choice']['planner_default_uses_index']}`** — with this few candidates "
+        "PostgreSQL prefers a sequential scan, and kill condition K asks for the index. Both "
+        "plans are timed in `pgvector.json`; those timings are machine-dependent and are not "
+        "quoted here.",
         f"- the planted in-process substitution is caught: **{pgvector['breach_caught']}**",
         "",
         "### The second backend",
@@ -304,13 +312,17 @@ def block() -> str:
         f"(`qdrant_cloud_tested: {str(comparison['qdrant_cloud_tested']).lower()}`), same corpus, "
         "same vectors, same queries:",
         "",
-        "| | recall@10 | p50 | p95 |",
-        "|---|---:|---:|---:|",
+        "| | recall@10 | queries measured |",
+        "|---|---:|---:|",
     ]
     for name in sorted(comparison["backends"]):
         b = comparison["backends"][name]
-        lines.append(f"| {name} | {b['recall_at_10']:.4f} | {b['p50_ms']} ms | {b['p95_ms']} ms |")
+        lines.append(f"| {name} | {b['recall_at_10']:.4f} | {b['queries_measured']} |")
     lines += [
+        "",
+        "Per-backend p50 and p95 are in `storage_comparison.json` and are not quoted here: latency "
+        "is a property of the machine that measured it, and on this corpus the two backends differ "
+        "by less than the same backend differs between a laptop and a CI runner.",
         "",
         f"The two engines admitted identical candidate sets on "
         f"{comparison['like_for_like']['queries_with_identical_candidate_sets']} of "
