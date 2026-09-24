@@ -11,6 +11,21 @@
 </p>
 
 <section class="panel">
+  {% if index_available is defined and not index_available %}
+  <div class="panel" style="border-color:#7f1d1d">
+    <strong>This instance has no index behind it, so questions cannot be answered here.</strong>
+    <p class="muted" style="margin:8px 0 0; max-width:74ch">
+      Render allows one free PostgreSQL database per workspace and another project holds it, so this
+      deployment runs the console without one. Nothing is broken and nothing is hidden: the screens
+      that carry this project's actual result read <code>artifacts/*.json</code> and need no
+      database at all — <a href="/evidence">the twelve kill conditions and every measured number</a>,
+      <a href="/failures">the failure cases</a>, and <a href="/provenance">the corpus provenance and
+      hold-out freeze</a>. To run the Ask screen, clone the repository and use <code>make db &amp;&amp;
+      make corpus &amp;&amp; make index &amp;&amp; make console</code>; the ten screenshots in
+      <code>docs/screenshots/</code> were captured that way.
+    </p>
+  </div>
+  {% endif %}
   <form class="ask" method="get" action="/">
     <input type="text" name="q" placeholder="e.g. What is the torque for the impeller retaining bolt?"
            value="{{ asked.text if asked else '' }}" required>

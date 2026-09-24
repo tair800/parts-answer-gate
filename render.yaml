@@ -23,6 +23,14 @@
 # published here, and the provenance screen states the seed, the generator version and the hold-out
 # freeze digest.
 #
+# **This deployment has no database, and that is a free-tier constraint rather than a choice.**
+# Render permits one free PostgreSQL per workspace and another project in this portfolio already
+# holds it; taking it would mean modifying a frozen project, which is not on the table. The console
+# is deployed anyway because the screens that carry this project's actual result — the twelve
+# verdicts, the release-gate banner, the failure cases, the provenance — read `artifacts/*.json`
+# and need no database at all. The Ask screen says plainly that it has no index behind it and why,
+# rather than returning empty results that would look like a broken retriever.
+#
 # Deploy with the Render Blueprint flow. Nothing here needs a payment method.
 
 services:
@@ -32,17 +40,19 @@ services:
     plan: free
     region: frankfurt
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /healthz
+    # `/livez` rather than `/healthz`, and the difference matters. `/healthz` answers 503 without a
+    # database — the truthful answer, and it stays that way — but a platform health check wired to
+    # it would refuse to route traffic to a console whose evidence screens work perfectly without
+    # one. The platform is asked whether the process is alive; `/healthz` still reports the index.
+    healthCheckPath: /livez
     autoDeploy: true
     envVars:
       - key: PAG_READ_ONLY
         value: "true"
       - key: PAG_ENVIRONMENT
         value: public-demo
-      - key: PAG_DATABASE_URL
-        fromDatabase:
-          name: parts-answer-gate-db
-          property: connectionString
+      # No PAG_DATABASE_URL. See the note at the top of this file: the free PostgreSQL slot in
+      # this workspace belongs to another project, and the screens that matter here do not need it.
       # Deliberately absent: PAG_LLM_API_KEY. Nothing in this build has ever called a model API,
       # and an image that shipped a key would put the same credential on every deployment of this
       # blueprint.
@@ -51,12 +61,13 @@ services:
       # measured locally and committed; the deployed service never reads it, and pointing this at a
       # public Qdrant would be paying for a comparison that has already been made.
 
-databases:
-  - name: parts-answer-gate-db
-    plan: free
-    region: frankfurt
-    # pgvector is what kill condition K is about, so the extension has to be available here and not
-    # only in the local compose image. Render's managed PostgreSQL ships it; migration 0001 issues
-    # `CREATE EXTENSION IF NOT EXISTS vector` as its first statement and will fail loudly rather
-    # than silently degrade if that ever stops being true.
-    postgresMajorVersion: "16"
+# No `databases:` block. The one free PostgreSQL this workspace is entitled to is in use by
+# another project, and `render.yaml` describes what is actually deployed rather than what would be
+# deployed with a budget. Running this with a database is one line — restore the block below and
+# the `PAG_DATABASE_URL` entry above — and `make db` gives the same thing locally:
+#
+#   databases:
+#     - name: parts-answer-gate-db
+#       plan: free
+#       region: frankfurt
+#       postgresMajorVersion: "16"

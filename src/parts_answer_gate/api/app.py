@@ -19,6 +19,7 @@ question the gate refused, which is the property kill condition E turns on.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -36,7 +37,7 @@ from parts_answer_gate.answerer import ExtractiveAnswerer, PostValidatedAnswerer
 from parts_answer_gate.config import Settings, get_settings
 from parts_answer_gate.domain import Answer, GateOutcome, Language, Query
 from parts_answer_gate.retrieval.pipeline import Retriever
-from parts_answer_gate.store.engine import build_engine, session_scope
+from parts_answer_gate.store.engine import DATABASE_URL_ENV, build_engine, session_scope
 from parts_answer_gate.store.schema import ChunkRow, DocumentRow
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -82,8 +83,50 @@ def settings() -> Settings:
 
 
 def db(config: Annotated[Settings, Depends(settings)]) -> Iterator[Session]:
+    """A session, or an error. Used where a database is genuinely required."""
     with session_scope(build_engine(config.database_url)) as session:
         yield session
+
+
+def has_configured_database() -> bool:
+    """Whether this instance was given a database, decided from configuration not from a probe.
+
+    Configuration rather than a connection attempt, and the reason is unglamorous: a TCP connection
+    to an address that drops packets rather than refusing them does not fail fast. It waits out the
+    operating system, which is long enough that the page looks hung rather than degraded, and
+    `connect_timeout` is not reliably honoured across every path into the driver. Meanwhile the
+    question the page is actually asking — *was this instance given an index* — is answered exactly
+    by whether `PAG_DATABASE_URL` was set.
+
+    `store.engine.database_url()` falls back to the local compose URL so that a developer needs no
+    environment at all, which is right for a developer and wrong here: on a public instance that
+    fallback points at a port with nothing behind it, and treating it as a database is what made
+    the page wait.
+    """
+    return bool(os.environ.get(DATABASE_URL_ENV))
+
+
+def optional_db(config: Annotated[Settings, Depends(settings)]) -> Iterator[Session | None]:
+    """A session when this instance has a database, `None` when it does not.
+
+    The public deployment runs without one: Render allows a single free PostgreSQL per workspace and
+    another project in this portfolio holds it. That is worth deploying around rather than not
+    deploying, because the screens carrying this project's result — the twelve verdicts, the
+    release-gate banner, the failure cases, the provenance — read `artifacts/*.json` and never touch
+    a database.
+
+    `None` rather than an exception so the Ask screen can render and **say what is missing**. A 500
+    tells a visitor the site is broken; an empty result list tells them the retriever is broken; the
+    truth is that this instance has no index, and only the page can say so.
+    """
+    if not has_configured_database():
+        yield None
+        return
+    try:
+        with session_scope(build_engine(config.database_url)) as session:
+            yield session
+    except Exception:
+        yield None
 
 
 def _artifacts(config: Settings) -> dict[str, Any]:
@@ -294,6 +337,23 @@ def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+@app.get("/livez", include_in_schema=False)
+def livez() -> JSONResponse:
+    """Is the process serving? Nothing more.
+
+    Separate from `/healthz` on purpose, and the separation is the standard liveness/readiness
+    split rather than a convenience. `/healthz` answers 503 without a database, which is the
+    truthful answer and must stay that way: an operator asking whether this instance can answer a
+    question needs to be told no. But a platform health check wired to that endpoint would take a
+    console whose evidence screens work perfectly without a database and refuse to route traffic to
+    it at all.
+
+    So the platform is asked the question it is actually asking — is this process alive — and
+    `/healthz` keeps reporting the state of the index to whoever wants to know it.
+    """
+    return JSONResponse({"status": "ok"})
+
+
 @app.get("/healthz", include_in_schema=False)
 def healthz(
     session: Annotated[Session, Depends(db)],
@@ -358,7 +418,7 @@ def _answer(session: Session, query: Query) -> tuple[Answer, Any]:
 @app.get("/", response_class=HTMLResponse)
 def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never passed positionally
     request: Request,
-    session: Annotated[Session, Depends(db)],
+    session: Annotated[Session | None, Depends(optional_db)],
     config: Annotated[Settings, Depends(settings)],
     q: Annotated[str | None, QueryParam()] = None,
     variant: Annotated[str | None, QueryParam()] = None,
@@ -379,7 +439,7 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
     answer: Answer | None = None
     retrieved: Any = ()
 
-    if q:
+    if q and session is not None:
         asked = Query(
             text=q,
             language=Language(lang) if lang in {"en", "tr", "ru"} else Language.EN,
@@ -399,9 +459,10 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
             asked=asked,
             answer=answer,
             retrieved=retrieved,
-            variants=_variants(session),
+            variants=_variants(session) if session is not None else [],
             default_as_of=today.isoformat(),
             examples=_EXAMPLES,
+            index_available=session is not None,
         ),
     )
 
