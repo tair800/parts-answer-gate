@@ -9,45 +9,50 @@
   ],
   "model_can_override_gate": false,
   "provenance": {
-    "commit": "280ca9fe09873284ff029eb60af4b14e3f65f9a0",
+    "commit": "14a746403e46a8449ed0f8423541fb9bea7eda59",
     "corpus_is_synthetic": true,
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.12.13"
   },
-  "responses_checked": 153,
+  "responses_checked": 432,
   "responses_missing_ai_disclosure": 0,
   "unanswerable_kinds": {
     "absent_specification": {
       "rate": 1.0,
-      "refused": 6,
-      "total": 6
+      "refused": 18,
+      "total": 18
     },
     "attribute_absent_for_existing_product": {
       "rate": 1.0,
-      "refused": 6,
-      "total": 6
+      "refused": 18,
+      "total": 18
     },
     "contradictory_sources": {
       "rate": 1.0,
-      "refused": 12,
-      "total": 12
+      "refused": 24,
+      "total": 24
+    },
+    "different_product_family": {
+      "rate": 1.0,
+      "refused": 18,
+      "total": 18
     },
     "malformed_part_number": {
       "rate": 1.0,
-      "refused": 12,
-      "total": 12
+      "refused": 18,
+      "total": 18
     },
     "near_match_different_identifier": {
       "rate": 1.0,
-      "refused": 9,
-      "total": 9
+      "refused": 18,
+      "total": 18
     },
     "superseded_without_replacement_asked": {
       "rate": 1.0,
-      "refused": 3,
-      "total": 3
+      "refused": 18,
+      "total": 18
     }
   },
-  "unanswerable_questions": 48,
+  "unanswerable_questions": 132,
   "unsupported_examples": []
 }

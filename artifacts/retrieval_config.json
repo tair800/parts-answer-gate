@@ -25,7 +25,7 @@
   },
   "normalisation": "unit vectors, cosine distance",
   "provenance": {
-    "commit": "280ca9fe09873284ff029eb60af4b14e3f65f9a0",
+    "commit": "14a746403e46a8449ed0f8423541fb9bea7eda59",
     "corpus_is_synthetic": true,
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.12.13"
