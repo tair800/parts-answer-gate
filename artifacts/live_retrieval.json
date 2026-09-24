@@ -19,7 +19,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 347.1,
+        "elapsed_ms": 421.2,
         "outcome": "answer",
         "reason": "5 passages in force on 2023-01-01 agree on one variant and cover 1.00 of the question's terms",
         "signals": {
@@ -87,7 +87,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 683.7,
+        "elapsed_ms": 599.2,
         "outcome": "abstain",
         "reason": "the retrieved passages cover 0.57 of the question's terms, below the 0.60 floor; the evidence is about something adjacent",
         "signals": {
@@ -119,7 +119,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 519.9,
+        "elapsed_ms": 362.9,
         "outcome": "answer",
         "reason": "5 passages in force on 2021-06-17 agree on one variant and cover 1.00 of the question's terms",
         "signals": {
@@ -189,7 +189,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 507.9,
+        "elapsed_ms": 304.6,
         "outcome": "answer",
         "reason": "5 passages in force on 2021-06-17 agree on one variant and cover 0.83 of the question's terms",
         "signals": {
@@ -258,7 +258,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 367.0,
+        "elapsed_ms": 234.4,
         "outcome": "answer",
         "reason": "5 passages in force on 2021-06-17 agree on one variant and cover 0.83 of the question's terms",
         "signals": {
@@ -327,7 +327,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 342.2,
+        "elapsed_ms": 482.9,
         "outcome": "answer",
         "reason": "5 passages in force on 2023-01-01 agree on one variant and cover 1.00 of the question's terms",
         "signals": {
@@ -395,7 +395,7 @@
       "failures": [],
       "observed": {
         "http_status": 200,
-        "elapsed_ms": 752.6,
+        "elapsed_ms": 714.1,
         "outcome": "review",
         "reason": "the supporting passages apply to different variants; one of them is the wrong machine and the text does not say which",
         "signals": {
@@ -467,7 +467,7 @@
     "observed_outcome": "answer",
     "reason_given": "5 passages in force on 2023-07-03 agree on one variant and cover 0.60 of the question's terms",
     "term_coverage": 0.6,
-    "elapsed_ms": 401.3,
+    "elapsed_ms": 210.3,
     "reproduces_the_published_failure": true,
     "note": "kill condition E requires an abstention here and the live system does not abstain, reproducing the published FAIL"
   },
@@ -481,7 +481,7 @@
       "cited_documents": [
         "doc-ax7-accumulator-station-man-c-en"
       ],
-      "elapsed_ms": 379.0
+      "elapsed_ms": 204.3
     },
     {
       "language": "tr",
@@ -492,7 +492,7 @@
       "cited_documents": [
         "doc-ax7-accumulator-station-man-c-tr"
       ],
-      "elapsed_ms": 942.3
+      "elapsed_ms": 302.3
     },
     {
       "language": "ru",
@@ -503,7 +503,7 @@
       "cited_documents": [
         "doc-ax7-accumulator-station-man-c-ru"
       ],
-      "elapsed_ms": 296.4
+      "elapsed_ms": 202.7
     }
   ],
   "observed_limitation": "on these passages the extractive answerer's quote selection often returns the section heading rather than the sentence carrying the measured value, so the assertions on measured values above read decision.approved_chunks rather than the quoted span. The citation still names the right document, revision and section. Quote selection is frozen along with everything else and was not adjusted for this file"

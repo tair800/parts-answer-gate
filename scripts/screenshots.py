@@ -450,8 +450,23 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[screenshots] {target.relative_to(REPO_ROOT)}")
             browser.close()
 
+        # Where a screenshot was taken is part of what it evidences. A local capture and one
+        # from the public deployment are different claims and a reader cannot tell them apart
+        # by looking, so the file says which.
         (args.output / "captions.json").write_text(
-            json.dumps(captions, indent=2) + "\n", encoding="utf-8"
+            json.dumps(
+                {
+                    "captured_from": (
+                        base_url
+                        if args.base_url
+                        else "a server this script started against the local database"
+                    ),
+                    "captions": captions,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
         )
         print(f"[screenshots] {len(captions)} screens captured into {args.output}")
         return 0

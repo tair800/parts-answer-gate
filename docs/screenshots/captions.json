@@ -5,8 +5,8 @@
   "04-evidence.png": "Every measured number, the twelve kill conditions with their verdicts, and the release-gate banner that does not go away.",
   "05-failures.png": "The failure cases, published rather than hidden.",
   "06-provenance.png": "Corpus provenance, the hold-out freeze digest, and the synthetic notice.",
-  "07-turkish.png": "The same question in Turkish, against the same index.",
+  "07-turkish.png": "The same question in Turkish -- the corpus's own parallel rendering, not the English text with a language filter -- against the same index.",
   "10-unsupported-answer-failure.png": "**Kill condition E failing, live.** The corpus contains no passage that answers this (absent_specification), and the gate answers it anyway. Every one of these failures is Turkish or Russian: term coverage is computed with a bidirectional prefix match that errs towards covering.",
-  "08-knowledge-now.png": "A past date asked with today's knowledge: the correction is returned.",
-  "09-knowledge-then.png": "The same date asked with the knowledge of the time: the original is returned, because a later correction does not rewrite what was believed."
+  "08-knowledge-now.png": "A past date asked with today's knowledge. The revision in force on that date was later corrected, and it is the correction that answers.",
+  "09-knowledge-then.png": "The same question, the same date, pinned to what was known at the time: the answer is 9 bar again, because a later correction does not rewrite what the technician had in front of them. Two axes, one query."
 }

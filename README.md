@@ -448,6 +448,26 @@ infrastructure is real; the criterion asked for a plan that would have been the 
 question per language, which shows the deployment serves all three. The per-language scores are in
 `multilingual.json`, measured over the whole corpus, and the two must not be quoted as each other.
 
+### What it looks like
+
+Ten screens under `docs/screenshots/`, **captured from the deployment above** by
+`scripts/screenshots.py --base-url` rather than from a local run; `captions.json` records which.
+The shot list is weighted towards the awkward states, because a gallery of successful answers says
+nothing that any RAG demo does not.
+
+| | |
+|---|---|
+| ![the same question, pinned to what was known in 2021](docs/screenshots/09-knowledge-then.png) | ![the same question under current knowledge](docs/screenshots/08-knowledge-now.png) |
+| **Knowledge time.** The same question, the same validity date, pinned to what was known in 2021: the belief held then answers, at 9 bar, from the document a later correction replaced. | **Current knowledge.** The same question and the same date, asked today: the correction answers, at 8 bar. One query, two axes, two different documents. |
+| ![a question the corpus cannot support](docs/screenshots/03-refused.png) | ![kill condition E failing](docs/screenshots/10-unsupported-answer-failure.png) |
+| **The screen this project exists for.** A question the corpus cannot support, and the system withholds rather than assembling something plausible. | **Kill condition E failing, live.** The corpus has no passage that answers this, and the gate answers it anyway. Published, not cropped out. |
+
+The remaining six are the console before a question (`01-ask`), an answered question with its
+citation offsets and every gate signal (`02-answered`), the evidence screen carrying all twelve
+verdicts (`04-evidence`), the failure cases (`05-failures`), corpus provenance and the hold-out
+freeze digest (`06-provenance`), and the same question in Turkish against the same index
+(`07-turkish`).
+
 ## Running it
 
 ```sh

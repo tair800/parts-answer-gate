@@ -371,10 +371,48 @@ jobs:
           docker logs pag
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/healthz)" = "200"
 
-      - name: Every screen renders and a question gets an answer or an abstention
+      - name: Every screen renders
         run: |
           for path in / /evidence /failures /provenance; do
             code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8000$path")
             echo "$path -> $code"
             test "$code" = "200"
           done
+
+      # This used to be one step with the one above, whose name promised a question and whose body
+      # only fetched four pages. The public deployment then answered 502 to every question -- the
+      # container was killed loading the encoder -- and this lane stayed green throughout, because
+      # nothing in it had ever asked one. A check that names a thing it does not do is worse than
+      # no check, because it is counted.
+      - name: A question gets a real answer, from the image, through the shipped endpoint
+        run: |
+          set -eu
+          Q='To what torque are the baseplate mounting foot bolts of the AX7-160 tightened?'
+          curl -sS --get --max-time 120 --data-urlencode "q=$Q" --data 'variant=AX7-160' --data 'as_of=2023-01-01' --data 'lang=en' "http://localhost:8000/api/ask" > /tmp/answer.json
+          head -c 400 /tmp/answer.json; echo
+          python - <<'CHECK'
+          import json
+          answer = json.load(open("/tmp/answer.json", encoding="utf-8"))
+          outcome = answer["decision"]["outcome"]
+          assert outcome == "answer", f"the gate returned {outcome} for a supported question"
+          assert answer["citations"], "an answer carried no citation"
+          assert "52 Nm" in (answer["text"] or ""), "the revision in force on that date did not answer"
+          assert answer["ai_disclosure"], "Article 50 disclosure absent from a served response"
+          print("answered, citing", answer["citations"][0]["document_id"])
+          CHECK
+
+      # The examples are corpus questions, enforced by scripts/check_ask_examples.py. This checks
+      # the other half: that the image can actually answer the first thing a visitor clicks.
+      - name: The first Ask example link renders a verdict, not the refusal panel
+        run: |
+          set -eu
+          curl -sS --max-time 120 "http://localhost:8000/" > /tmp/home.html
+          LINK=$(grep -oE 'href="/\?q=[^"]+"' /tmp/home.html | head -1 | sed -e 's/^href="//' -e 's/"$//' -e 's/&amp;/\&/g')
+          test -n "$LINK"
+          echo "following $LINK"
+          curl -sS --max-time 120 "http://localhost:8000$LINK" > /tmp/example.html
+          if grep -q "cannot encode" /tmp/example.html; then
+            echo "the first example link shows the refusal panel"; exit 1
+          fi
+          grep -qE '<div class="big (answer|abstain|review)">' /tmp/example.html
+          echo "the first example link renders a verdict"

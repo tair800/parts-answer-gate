@@ -15,14 +15,14 @@
   <div class="panel" style="border-color:#7f1d1d">
     <strong>This instance has no index behind it, so questions cannot be answered here.</strong>
     <p class="muted" style="margin:8px 0 0; max-width:74ch">
-      Render allows one free PostgreSQL database per workspace and another project holds it, so this
-      deployment runs the console without one. Nothing is broken and nothing is hidden: the screens
-      that carry this project's actual result read <code>artifacts/*.json</code> and need no
-      database at all — <a href="/evidence">the twelve kill conditions and every measured number</a>,
+      The deployment normally runs against a free Neon PostgreSQL 16 with pgvector in the same
+      region, and this message means it cannot reach it — a sleeping instance waking, a connection
+      limit, or a database that has gone away. Nothing is hidden: the screens that carry this
+      project's actual result read <code>artifacts/*.json</code> and need no database at all —
+      <a href="/evidence">the twelve kill conditions and every measured number</a>,
       <a href="/failures">the failure cases</a>, and <a href="/provenance">the corpus provenance and
-      hold-out freeze</a>. To run the Ask screen, clone the repository and use <code>make db &amp;&amp;
-      make corpus &amp;&amp; make index &amp;&amp; make console</code>; the ten screenshots in
-      <code>docs/screenshots/</code> were captured that way.
+      hold-out freeze</a>. To run the Ask screen yourself, clone the repository and use <code>make db
+      &amp;&amp; make corpus &amp;&amp; make index &amp;&amp; make console</code>.
     </p>
   </div>
   {% endif %}
@@ -178,6 +178,13 @@
   The candidate set was constrained <strong>in SQL, before any score was computed</strong> — by
   variant, by serial range, and by what was in force on {{ asked.as_of }}. Passages outside those
   were never ranked, so nothing here needed to be discarded afterwards.
+  <br><br>
+  A <span class="tag superseded">withdrawn</span> tag means this passage <em>was</em> in force on
+  {{ asked.as_of }} and was withdrawn later — which is what asking about a past date looks like, and
+  is the opposite of a problem. It is <strong>not</strong> the gate's <code>superseded present</code>
+  signal above: that one fires when a passage <em>not</em> in force on the queried date reaches the
+  gate at all, which would mean the filter had failed. On a historical query you should expect every
+  row tagged and the signal reading <code>no</code>.
 </p>
 <div class="panel wrap" style="padding:0">
   <table>
@@ -193,7 +200,10 @@
         <td class="mono">{{ item.chunk.effectivity.variant_id }}
           <span class="muted">{{ item.chunk.effectivity.serials }}</span></td>
         <td class="mono">{{ item.chunk.document_id }}
-          {% if item.chunk.superseded_by %}<span class="tag superseded">superseded</span>{% endif %}
+          {% if item.chunk.superseded_by %}<span class="tag superseded"
+            title="In force on the queried date, and withdrawn afterwards. This is what asking a
+past date looks like; it is not the gate's superseded-present signal.">withdrawn
+            {{ item.chunk.valid_to }}</span>{% endif %}
         </td>
         <td class="num">{{ "%.3f"|format(item.lexical_score) }}</td>
         <td class="num">{{ "%.3f"|format(item.dense_score) }}</td>
