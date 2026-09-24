@@ -34,6 +34,7 @@ from parts_answer_gate.gate import PRIMARY_THRESHOLD_SWEEP
 from parts_answer_gate.holdout import load_frozen
 from parts_answer_gate.retrieval.embeddings import Embedder
 from parts_answer_gate.retrieval.pipeline import Retriever
+from parts_answer_gate.store.comparison import build_storage_comparison_artifact
 from parts_answer_gate.store.diagnostics import build_pgvector_artifact
 from parts_answer_gate.store.effectivity import FILTER_STAGE
 from parts_answer_gate.store.lifecycle import measure_index_lifecycle
@@ -624,6 +625,15 @@ def build_all(
             session, _representative_query(holdout_questions), embedder=retriever.embedder
         ),
         "index_lifecycle.json": measure_index_lifecycle(session, retriever.embedder),
+        # The managed-vector comparison, against a **local** Qdrant container. The artifact states
+        # that in its own body, and `qdrant_cloud_tested` is false: nothing in this repository has
+        # ever reached Qdrant Cloud, and the cost column is published-list-price arithmetic rather
+        # than a measured bill. It raises if Qdrant is unreachable rather than emitting a
+        # one-backend artifact, because a comparison with one side missing that still passes its
+        # test is worse than a failing build.
+        "storage_comparison.json": build_storage_comparison_artifact(
+            session, holdout_questions, embedder=retriever.embedder
+        ),
     }
 
     written: dict[str, Path] = {}

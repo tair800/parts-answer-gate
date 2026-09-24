@@ -128,12 +128,6 @@ DEFAULT_QDRANT_URL: Final = "http://127.0.0.1:16333"
 #: `docker-compose.yml` service avoids by mounting no volume.
 COLLECTION_NAME: Final = "pag_storage_comparison"
 
-#: Qdrant point ids must be unsigned integers or UUIDs and this corpus keys chunks by strings like
-#: `doc-xp400-hydraulic-pump-man-f-en-c010`. The mapping is positional over the chunk ids in sorted
-#: order, so it is reproducible across runs — kill condition J compares two runs byte for byte, and
-#: an id assignment that depended on dictionary iteration order would break that on its own.
-_ID_ORDER_COLUMN: Final = "chunk_id"
-
 #: NULL bounds, carried into the payload as sentinels rather than as JSON nulls.
 #:
 #: The SQL predicate spells an open interval as `valid_to IS NULL OR :as_of < valid_to`. Qdrant can
@@ -301,7 +295,7 @@ def _read_stored_chunks(session: Session) -> list[_StoredChunk]:
             )
         stored.append(
             _StoredChunk(
-                chunk_id=str(row[_ID_ORDER_COLUMN]),
+                chunk_id=str(row["chunk_id"]),
                 vector=vector,
                 payload={
                     # Carried so the collection is legible to somebody who opens it in Qdrant's own
@@ -535,6 +529,11 @@ def _load_collection(client: QdrantClient, stored: Sequence[_StoredChunk]) -> di
                 for offset, item in enumerate(stored[start : start + batch])
             ],
         )
+    # Qdrant point ids must be unsigned integers or UUIDs and this corpus keys chunks by strings
+    # like `doc-xp400-hydraulic-pump-man-f-en-c010`, so the mapping is positional over `stored` —
+    # which `_read_stored_chunks` ordered by chunk id. Reproducible across runs on purpose: kill
+    # condition J compares two runs byte for byte, and an id assignment that depended on dictionary
+    # iteration order would break that on its own.
     return {index: item.chunk_id for index, item in enumerate(stored)}
 
 
@@ -995,8 +994,11 @@ def build_storage_comparison_artifact(
             "mean_top_10_overlap": round(_mean(overlaps), 4),
             "overlap_note": (
                 "share of each backend's top-10 that the other also returned, averaged over the "
-                "workload. Not expected to be 1.0 and not a defect below it: both indexes are "
-                "approximate and the two engines break distance ties differently."
+                "workload. 1.0 is what both engines taking an exact pass over an identical "
+                "candidate set should produce, and is therefore a check on this file rather than a "
+                "result about either product. Below 1.0 is not a defect either: it is what an "
+                "approximate index on one side or a different tie-break on the other looks like, "
+                "and each backend's `filtering` field says which path it took."
             ),
         },
         "cost_basis": "published list price arithmetic, not a measured bill",
