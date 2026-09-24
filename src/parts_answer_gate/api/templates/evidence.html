@@ -177,20 +177,47 @@
 {% endif %}
 
 <h2>The twelve kill conditions</h2>
+<p class="muted" style="max-width:78ch">
+  Every threshold below was committed to <code>DECISIONS.md</code> <strong>before any source file
+  existed</strong>. None has been lowered and none has been deleted. The verdicts come from
+  <code>artifacts/release_gate.json</code> — the graded test's own result, not a second opinion
+  rendered here.
+</p>
 <div class="panel wrap" style="padding:0">
   <table>
-    <thead><tr><th>condition</th><th>measured</th><th>artifact</th></tr></thead>
+    <thead><tr><th>condition</th><th>verdict</th><th>measured</th><th>artifact</th></tr></thead>
     <tbody>
       {% for row in kill_rows %}
       <tr>
         <td><strong>{{ row.letter }}</strong> {{ row.name }}</td>
+        <td>
+          {% if row.verdict == "FAIL" %}
+            <strong style="color:#f87171">FAIL</strong>
+          {% elif row.verdict == "PASS BUT VACUOUS" %}
+            <strong style="color:#fbbf24">PASS BUT VACUOUS</strong>
+          {% elif row.verdict == "PASS" %}
+            <span style="color:#4ade80">PASS</span>
+          {% else %}
+            <span class="muted">{{ row.verdict }}</span>
+          {% endif %}
+        </td>
         <td>{{ row.measured }}</td>
         <td class="mono muted">{{ row.artifact }}</td>
       </tr>
+      {% if row.why %}
+      <tr><td colspan="4" class="muted" style="padding-top:0; font-size:13px">{{ row.why }}</td></tr>
+      {% endif %}
       {% endfor %}
     </tbody>
   </table>
 </div>
+<p class="muted" style="max-width:78ch">
+  <strong>A vacuous pass is not a pass.</strong> G reports a wrong-answer rate of zero, and the zero
+  is worth nothing: the effectivity predicate excludes revision- and variant-incorrect passages
+  <em>upstream of the gate</em>, so no answer this system can give is capable of being wrong in
+  either sense. G cannot distinguish this system from a broken one. It is reported as it measured,
+  with this note attached.
+</p>
 
 {% set pg = artifacts.get("pgvector") %}
 {% if pg %}

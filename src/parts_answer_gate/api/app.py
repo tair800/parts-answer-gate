@@ -132,6 +132,27 @@ def _variants(session: Session) -> list[str]:
     return [row for row in rows if row]
 
 
+def _with_verdicts(
+    rows: list[dict[str, str]], gate_report: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Attach each condition's verdict, taken from `artifacts/release_gate.json`.
+
+    From the artifact rather than recomputed here, because the verdict is the graded test's own
+    result and a second opinion rendered in a template is how a console comes to disagree with the
+    suite. A condition the report does not mention renders as `NOT RUN`, never as blank — a blank
+    cell in a verdict column reads as a pass.
+    """
+    conditions = gate_report.get("conditions") or {}
+    for row in rows:
+        entry = conditions.get(row["letter"]) or {}
+        verdict = str(entry.get("verdict") or "NOT RUN")
+        if entry.get("vacuous"):
+            verdict = "PASS BUT VACUOUS"
+        row["verdict"] = verdict
+        row["why"] = str(entry.get("why") or "")
+    return rows
+
+
 def _kill_rows(artifacts: dict[str, Any]) -> list[dict[str, str]]:
     """The twelve conditions, rendered from what the artifacts actually say.
 
@@ -421,7 +442,11 @@ def evidence(request: Request, config: Annotated[Settings, Depends(settings)]) -
     return TEMPLATES.TemplateResponse(
         request,
         "evidence.html",
-        _context(config, artifacts=artifacts, kill_rows=_kill_rows(artifacts)),
+        _context(
+            config,
+            artifacts=artifacts,
+            kill_rows=_with_verdicts(_kill_rows(artifacts), _release_gate(config)),
+        ),
     )
 
 
