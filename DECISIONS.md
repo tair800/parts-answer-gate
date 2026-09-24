@@ -573,3 +573,81 @@ so a regression cannot hide behind a disclosed failure, and a disclosed failure 
 become a pass.
 
 **PROJECT 7 — CLOSED AS A PRE-REGISTERED NEGATIVE RESULT.**
+
+---
+
+## ADR-005 — Deploying a closed experiment, and the one thing the free tier would not give
+
+**Status:** accepted · **Date:** 2026-09-24 · **ADR-001 to ADR-004 stand unedited above.**
+
+ADR-004 closed the experiment. This records the decisions taken to put the closed system in front of
+a reader, and states what each one does and does not change. **Nothing here re-opens the result.**
+No threshold, no retrieval weight, no effectivity rule, no gate condition, no citation rule, no
+corpus row and no hold-out membership was touched, and no published figure was re-measured.
+
+### The database is a free Neon PostgreSQL, on the direct endpoint
+
+Render allows one free PostgreSQL per workspace and project 6 holds it. A managed Neon instance in
+the same region costs nothing and, unlike Render's, does not expire after thirty days — which for a
+demonstration that is meant to outlive the session that built it is the deciding property.
+
+**The direct endpoint, not the pooler.** `store/engine.py` applies session settings on connect,
+`hnsw.ef_search` among them. A transaction-mode pooler hands out a different backend per transaction
+and discards them, so the deployed service would have searched at a different beam width from the
+one every published figure was measured at — a deployment that quietly is not the evaluated system.
+The pooled DSN is the one the provider offers first, which is exactly why this is written down.
+
+`normalise_database_url` coerces the `postgres://` and `postgresql://` forms managed providers hand
+out to `postgresql+psycopg://` and preserves the query string, `sslmode=require` included.
+
+### Query vectors are served from the build-time cache
+
+**Measured, not estimated: the process is 671 MB resident once the ONNX session is open, and the
+instance has 512.** Disabling the CPU memory arena recovered 37 MB, which is not a fix — this is a
+multilingual model with a 250,000-token vocabulary whose embedding table alone is about 384 MB. The
+service returned 502 to every question until this changed.
+
+The build already embeds the corpus. It now embeds the corpus's questions too, and
+`PAG_QUERY_CACHE_ONLY` tells the service to serve query vectors from that cache and never open a
+session.
+
+**This is sound because of one property, and only that property.** `Embedder.embed_query(text)` is
+`embed_documents([text])[0]`: this model has no query or passage prefix and no second
+transformation, so a vector computed at build time for a given string is the vector the encoder
+would produce now, bit for bit. Retrieval is therefore unchanged — the same hybrid search over the
+same pgvector index, the same fusion, the same reranker, the same gate — and what moved is only
+where the arithmetic happened, exactly as it already had for every passage in the index.
+
+`tests/test_precomputed.py` asserts that property over the AST rather than trusting this paragraph.
+If a prefix, a normalisation or an instruction template is ever added to `embed_query`, that test
+fails and this deployment must go back to opening the encoder.
+
+**The cost is real and is stated on the page.** A question whose text is not in the corpus has no
+precomputed vector, and the service answers 503 with an explanation rather than searching with a
+vector it does not have. Rejected alternatives: returning a zero vector (a wrong answer dressed as a
+retrieval result), returning an empty result (a claim about the corpus, when the truth is a claim
+about the instance's memory), and a smaller monolingual encoder (it would make the one cross-lingual
+result meaningless, which is the result the blueprint asks for).
+
+### What the deployment is allowed to claim
+
+Two committed scripts, two committed artifacts, both regenerable:
+`scripts/live_proof.py` → `artifacts/live_retrieval.json` and
+`scripts/live_pgvector.py` → `artifacts/live_pgvector.json`.
+
+They are **deployment checks, not evaluation**. They score nothing, they use development-split
+questions only, and the three-language smoke in the first is three queries and is not the
+per-language measurement in `multilingual.json`.
+
+**A live pgvector deployment does not make kill condition K pass.** K asks for a vector index scan
+in the query plan. The effectivity predicate leaves about twenty-one candidate rows and PostgreSQL
+correctly prefers a sequential scan over so few. A real extension, a real `vector(384)` column, a
+real HNSW index and `<=>` in the executed plan are worth recording and are a different claim from
+the one K makes. K stays **FAIL**.
+
+`live_retrieval.json` also records **kill condition E failing on the live instance**, on a question
+of the kind E fails on. It is recorded and never asserted: a check pinned to "answers" would make
+the failure look intended, and one pinned to "abstains" would fail the build for something this
+project has already reported and deliberately not fixed.
+
+**PROJECT 7 — CLOSED AS A PRE-REGISTERED NEGATIVE RESULT.**

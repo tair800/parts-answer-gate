@@ -4,8 +4,15 @@ The operating contract for this repository. Read it before touching anything her
 
 `DECISIONS.md` is authoritative and this file is subordinate to it. ADR-001 is the predeclared
 contract and its twelve kill conditions; ADR-002 records what the first benchmark iteration got
-wrong. Read both before changing retrieval, the store, the gate, the corpus or the evaluation.
-Where this file and `DECISIONS.md` disagree, `DECISIONS.md` wins and this file is the thing to fix.
+wrong; ADR-003 the second iteration; **ADR-004 the final measured result and the close**; ADR-005
+the deployment decisions and what each one does and does not change. Read ADR-001, ADR-002 and
+ADR-004 before changing retrieval, the store, the gate, the corpus or the evaluation, and ADR-005
+before changing anything about the deployed service. Where this file and `DECISIONS.md` disagree,
+`DECISIONS.md` wins and this file is the thing to fix.
+
+**The experiment is closed.** Nothing in this repository may be tuned to improve a measured number.
+A change to the gate's coverage rule, the thresholds, the corpus or the hold-out is a **new
+experiment** with a new hold-out under a new recorded decision, not an edit to this one.
 
 ---
 
