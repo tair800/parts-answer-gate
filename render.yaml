@@ -23,13 +23,11 @@
 # published here, and the provenance screen states the seed, the generator version and the hold-out
 # freeze digest.
 #
-# **This deployment has no database, and that is a free-tier constraint rather than a choice.**
-# Render permits one free PostgreSQL per workspace and another project in this portfolio already
-# holds it; taking it would mean modifying a frozen project, which is not on the table. The console
-# is deployed anyway because the screens that carry this project's actual result — the twelve
-# verdicts, the release-gate banner, the failure cases, the provenance — read `artifacts/*.json`
-# and need no database at all. The Ask screen says plainly that it has no index behind it and why,
-# rather than returning empty results that would look like a broken retriever.
+# **The database is a free Neon PostgreSQL 16 in Frankfurt, not a Render one.** Render allows one
+# free PostgreSQL per workspace and another project in this portfolio holds it; taking that would
+# mean modifying a frozen project. Neon's free tier ships pgvector, which is what kill condition K
+# is about, so the deployed console runs real retrieval against a real vector index rather than
+# serving committed artifacts alone.
 #
 # Deploy with the Render Blueprint flow. Nothing here needs a payment method.
 
@@ -51,8 +49,19 @@ services:
         value: "true"
       - key: PAG_ENVIRONMENT
         value: public-demo
-      # No PAG_DATABASE_URL. See the note at the top of this file: the free PostgreSQL slot in
-      # this workspace belongs to another project, and the screens that matter here do not need it.
+      # The database. `sync: false` means the blueprint declares that this variable exists and
+      # leaves its value to the dashboard, which is the only correct place for a credential: a DSN
+      # written here would be committed, and every deployment of this blueprint would carry it.
+      #
+      # It points at a **free Neon PostgreSQL 16 in Frankfurt**, not at a Render database, because
+      # Render allows one free PostgreSQL per workspace and another project in this portfolio holds
+      # it. Neon ships pgvector, which is what kill condition K is about, and the connection is the
+      # **direct** endpoint rather than the pooled one: `store.engine` applies session settings on
+      # connect — `hnsw.ef_search` among them — and a transaction-mode pooler discards those, so the
+      # deployed service would search at a different beam width from the one every published figure
+      # was measured at.
+      - key: PAG_DATABASE_URL
+        sync: false
       # Deliberately absent: PAG_LLM_API_KEY. Nothing in this build has ever called a model API,
       # and an image that shipped a key would put the same credential on every deployment of this
       # blueprint.
@@ -61,13 +70,7 @@ services:
       # measured locally and committed; the deployed service never reads it, and pointing this at a
       # public Qdrant would be paying for a comparison that has already been made.
 
-# No `databases:` block. The one free PostgreSQL this workspace is entitled to is in use by
-# another project, and `render.yaml` describes what is actually deployed rather than what would be
-# deployed with a budget. Running this with a database is one line — restore the block below and
-# the `PAG_DATABASE_URL` entry above — and `make db` gives the same thing locally:
-#
-#   databases:
-#     - name: parts-answer-gate-db
-#       plan: free
-#       region: frankfurt
-#       postgresMajorVersion: "16"
+# No `databases:` block, because the database is not Render's. See `PAG_DATABASE_URL` above: it is
+# a free Neon PostgreSQL 16 in the same region, provisioned because the one free Render PostgreSQL
+# this workspace is entitled to belongs to another project. `make db` gives the same thing locally
+# from `docker-compose.yml`, on the same major version, with the same extension.

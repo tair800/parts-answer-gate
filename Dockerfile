@@ -57,7 +57,12 @@ WORKDIR /app
 COPY --from=build --chown=root:root /app/.venv /app/.venv
 COPY --from=build --chown=root:root /app/src /app/src
 COPY --from=build --chown=root:root /app/scripts /app/scripts
-COPY --from=build --chown=root:root /app/.fastembed_cache /app/.fastembed_cache
+# Owned by the runtime user, not by root. fastembed writes a small tree-cache file beside the
+# weights on first use, and as root-owned the container logged
+# `Ignoring corrupted tree cache file ... Permission denied` on every cold start and then went
+# looking for the model it already had. The model is still read-only in effect: the process has no
+# shell and nothing writes here but fastembed's own bookkeeping.
+COPY --from=build --chown=parts:parts /app/.fastembed_cache /app/.fastembed_cache
 
 # The corpus and its precomputed vectors, from the build stage. The entrypoint loads these into
 # PostgreSQL without opening the encoder, which is what makes a free-tier start finish in seconds
@@ -85,6 +90,15 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PAG_EMBEDDING_CACHE=/app/.fastembed_cache \
+    # One thread for the ONNX session, and one for every BLAS library that would otherwise size a
+    # pool from the host's core count. The free instance this image is built for has 512MB: each
+    # extra thread takes its own arena, and the process is killed for memory long before the extra
+    # cores make a single query faster. The batch path that encodes the whole corpus runs at build
+    # time, on a builder, where none of this applies.
+    PAG_EMBEDDING_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
     # Read-only unless a deployment says otherwise, and no model key is baked in. An image shipping
     # one would put the same credential on every deployment that ever ran it.
     PAG_READ_ONLY=true

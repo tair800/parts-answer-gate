@@ -17,6 +17,7 @@ network call at query time, which is also what makes CI able to score retrieval 
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Sequence
 from functools import cached_property
 from pathlib import Path
@@ -27,6 +28,7 @@ __all__ = [
     "EMBEDDING_DIM",
     "EMBEDDING_MODEL_NAME",
     "EMBEDDING_POLICY",
+    "EMBEDDING_THREADS",
     "DocumentEncoder",
     "Embedder",
     "cosine_similarity",
@@ -92,6 +94,17 @@ def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
     return 0.0 if norm == 0.0 else dot / norm
 
 
+#: How many threads the ONNX session may use. `None` lets onnxruntime size a pool from the host's
+#: core count, which is right on a builder and wrong on a 512MB shared-CPU instance: each thread
+#: takes its own arena, and the process is killed for memory long before the extra cores help a
+#: single query. `PAG_EMBEDDING_THREADS` exists so the serving configuration can say one without
+#: the batch path — which encodes thousands of passages and genuinely wants the cores — being
+#: slowed down by a constant nobody can override.
+EMBEDDING_THREADS: Final[int | None] = (
+    int(os.environ["PAG_EMBEDDING_THREADS"]) if os.environ.get("PAG_EMBEDDING_THREADS") else None
+)
+
+
 class Embedder:
     """A lazily-loaded fastembed encoder.
 
@@ -117,7 +130,11 @@ class Embedder:
         from fastembed import TextEmbedding  # noqa: PLC0415
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        return TextEmbedding(model_name=self.model_name, cache_dir=str(self.cache_dir))
+        return TextEmbedding(
+            model_name=self.model_name,
+            cache_dir=str(self.cache_dir),
+            threads=EMBEDDING_THREADS,
+        )
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         """Encode passages, in the order given.
