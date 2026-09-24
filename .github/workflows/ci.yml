@@ -142,12 +142,20 @@ jobs:
         # graded on numbers that described nothing. `make evidence` had the step; CI did not.
         run: uv run python scripts/seed_index.py
 
+      - name: How many candidates the filter leaves
+        # Run before any score is read. It measures the corpus and the filter, never performance,
+        # and the first benchmark was invalid because nobody took it.
+        run: uv run python scripts/candidate_profile.py
+
       - name: Build the evidence
         # Produces pgvector.json, index_lifecycle.json and storage_comparison.json as part of the
         # ordinary build. For the whole of the first iteration those three existed only as helper
         # functions with no caller, and the numbers that were quoted for them came from scripts run
         # by hand. Evidence only a person can regenerate is not evidence.
         run: uv run python scripts/build_artifacts.py
+
+      - name: Both bitemporal axes, against the live database
+        run: uv run python scripts/bitemporal_evidence.py
 
       - name: The predeclaration guard
         # `test_kill_criteria.py` has not been edited since it was committed with zero source files,
@@ -219,6 +227,7 @@ jobs:
           uv run python scripts/seed_index.py
           uv run python scripts/candidate_profile.py
           uv run python scripts/build_artifacts.py
+          uv run python scripts/bitemporal_evidence.py
       - name: Report the release gate
         # Exits 0 while the outcome matches the pinned record, which currently reads FAILED on E, F
         # and H. It exits non-zero on any divergence, so this lane is a regression detector rather

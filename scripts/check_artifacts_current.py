@@ -52,7 +52,12 @@ REQUIRED = (
 
 #: Produced by their own scripts rather than by `build_artifacts.py`, so they are checked for
 #: existence but not for provenance.
-SIDECARS = ("breaches.json", "candidate_profile.json")
+SIDECARS = (
+    "breaches.json",
+    "candidate_profile.json",
+    "bitemporal.json",
+    "release_gate.json",
+)
 
 
 def main() -> int:

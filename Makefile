@@ -13,7 +13,7 @@
 # `make evidence` is the whole chain and is what CI runs.
 
 .PHONY: help setup db db-down migrate corpus determinism index candidates artifacts \
-        artifacts-check test release-gate fast lint types breaches console evidence \
+        artifacts-check test release-gate fast lint types breaches bitemporal console evidence \
         screenshots clean
 
 PY := .venv/Scripts/python.exe
@@ -79,7 +79,10 @@ screenshots: ## capture the console's screens into docs/screenshots/
 candidates: ## how many passages the eligibility filter leaves, against top_k
 	$(PY) scripts/candidate_profile.py
 
-evidence: corpus determinism migrate index candidates artifacts breaches test release-gate ## the full chain
+bitemporal: ## both time axes, measured against the live database
+	$(PY) scripts/bitemporal_evidence.py
+
+evidence: corpus determinism migrate index candidates artifacts bitemporal breaches test release-gate ## the full chain
 	@echo
 	@echo "The engineering suite is above. The release gate is the last block, and it FAILED:"
 	@echo "three of the twelve predeclared kill conditions do not hold and a fourth passes"
