@@ -49,4 +49,5 @@ def reciprocal_rank_fusion(
 
 def order_by_score(scores: Mapping[str, float]) -> list[str]:
     """Descending by score, ascending by chunk id. The tie-break is the determinism guarantee."""
-    return [chunk_id for chunk_id, _ in sorted(scores.items(), key=lambda item: (-item[1], item[0]))]
+    ordered = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
+    return [chunk_id for chunk_id, _ in ordered]

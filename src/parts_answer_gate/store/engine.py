@@ -87,7 +87,7 @@ def _configure_session(engine: Engine) -> None:
             for name, value in SESSION_SETTINGS.items():
                 # Identifiers cannot be bound parameters, and these come from a module constant, not
                 # from a caller.
-                cursor.execute(f"SET {name} = {value}")  # noqa: S608
+                cursor.execute(f"SET {name} = {value}")
 
 
 def wait_for_database(engine: Engine, *, timeout_seconds: float = 60.0) -> float:
@@ -104,7 +104,7 @@ def wait_for_database(engine: Engine, *, timeout_seconds: float = 60.0) -> float
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
             return time.monotonic() - started
-        except OperationalError as error:  # noqa: PERF203
+        except OperationalError as error:
             last = error
             time.sleep(0.5)
     raise TimeoutError(

@@ -30,10 +30,15 @@ _COLUMNS: Final = ", ".join(f"chunk.{name}" for name in CHUNK_READ_COLUMNS)
 # ORDER BY chunk_id is not cosmetic. The lexical index is built from this list in the order it
 # arrives, and an unordered SELECT in PostgreSQL may return rows in a different physical order after
 # an update rewrites a page. Kill condition J compares two runs byte for byte.
-_CANDIDATE_SQL: Final = f"SELECT {_COLUMNS} FROM chunk WHERE ({{where}}) ORDER BY chunk.chunk_id"
+# The column list and both templates are built from module constants; the `where` fragment comes
+# from `store.effectivity` and every caller-supplied value is a bound parameter. That is why the
+# S608 suppressions below are safe and not a shrug.
+_CANDIDATE_SQL: Final = (
+    f"SELECT {_COLUMNS} FROM chunk WHERE ({{where}}) ORDER BY chunk.chunk_id"  # noqa: S608
+)
 
 _EXACT_SQL: Final = (
-    f"SELECT {_COLUMNS} FROM chunk "
+    f"SELECT {_COLUMNS} FROM chunk "  # noqa: S608
     "WHERE ({where}) AND chunk.identifiers && CAST(:identifiers AS text[]) "
     "ORDER BY chunk.chunk_id"
 )
@@ -47,7 +52,7 @@ def identifiers_in_query(query: Query) -> tuple[str, ...]:
 def fetch_candidates(session: Session, candidate_filter: CandidateFilter) -> list[Chunk]:
     """Every chunk the effectivity predicate admits. Scoring happens only over this list."""
     rows = session.execute(
-        text(_CANDIDATE_SQL.format(where=candidate_filter.sql)),  # noqa: S608
+        text(_CANDIDATE_SQL.format(where=candidate_filter.sql)),
         candidate_filter.params,
     ).mappings()
     return [chunk_from_mapping(row) for row in rows]

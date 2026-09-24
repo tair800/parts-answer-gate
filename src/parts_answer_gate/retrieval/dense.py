@@ -87,12 +87,12 @@ def dense_sql(candidate_filter: CandidateFilter) -> str:
     # The `where` fragment is assembled from module constants in `store.effectivity`; every value a
     # caller supplies arrives through a bound parameter, which is why this is not an injection site
     # despite being a formatted string.
-    return _SQL_TEMPLATE.format(  # noqa: S608
-        operator=DISTANCE_OPERATOR, where=candidate_filter.sql
-    )
+    return _SQL_TEMPLATE.format(operator=DISTANCE_OPERATOR, where=candidate_filter.sql)
 
 
-def _params(candidate_filter: CandidateFilter, vector: Sequence[float], limit: int) -> dict[str, Any]:
+def _params(
+    candidate_filter: CandidateFilter, vector: Sequence[float], limit: int
+) -> dict[str, Any]:
     return {**candidate_filter.params, "query_vector": vector_literal(vector), "limit": limit}
 
 
@@ -107,7 +107,9 @@ def dense_search(
     rows = session.execute(
         text(dense_sql(candidate_filter)), _params(candidate_filter, vector, limit)
     ).all()
-    return [DenseHit(chunk_id=str(chunk_id), distance=float(distance)) for chunk_id, distance in rows]
+    return [
+        DenseHit(chunk_id=str(chunk_id), distance=float(distance)) for chunk_id, distance in rows
+    ]
 
 
 def explain_dense(

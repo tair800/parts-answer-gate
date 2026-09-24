@@ -36,6 +36,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+)
+from sqlalchemy import (
     text as sql_text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -272,12 +274,15 @@ CHUNK_READ_COLUMNS: Final = (
 )
 
 
-def chunk_from_mapping(row: Mapping[str, Any]) -> Chunk:
+def chunk_from_mapping(row: Mapping[Any, Any]) -> Chunk:
     """Build a domain chunk from a result row.
 
     Takes a mapping rather than an ORM instance because the retrieval path runs raw SQL — the
     effectivity predicate is a textual `WHERE` fragment shared with the pgvector query, and routing
     it through the ORM would mean two spellings of the one rule this project is about.
+
+    `Mapping[Any, Any]` rather than `Mapping[str, Any]` because SQLAlchemy's `RowMapping` is keyed
+    by column objects as well as by name; narrowing it here would only move a cast to every caller.
     """
     return Chunk(
         chunk_id=row["chunk_id"],

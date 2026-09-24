@@ -4,17 +4,18 @@ A cross-encoder would rerank better. It would also put a neural model between th
 answer, and ADR-001's gate is built entirely from signals that are not model outputs — the moment a
 transformer decides the final ordering, "the decision to answer is deterministic" stops being true
 of the thing the decision was made about. So this stage is four features and four constants, all
-readable, all reproducible, and all cheap enough that they cost less than the round trip they follow.
+readable, all reproducible, and all cheaper than the round trip they follow.
 
 The features exist because RRF throws information away on purpose. Fusion knows only positions, so
 it cannot tell that a candidate ranked third by both stages happens to contain the exact part number
-the question asked for. These four put the discarded evidence back, without re-deriving a score
-scale that RRF deliberately avoided.
+the question asked for. These four put the discarded evidence back, without re-deriving a
+score scale that RRF deliberately avoided.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence, Set as AbstractSet
+from collections.abc import Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -32,7 +33,7 @@ __all__ = ["RERANK_WEIGHTS", "RerankCandidate", "RerankedChunk", "rerank"]
 #: identifier hit a gate signal in its own right.
 #: `language_match` is small because the candidate filter already constrains language by default;
 #: the weight only does work in the widened cross-lingual ablation, where it prefers a passage in
-#: the technician's own language when two passages say the same thing.
+#: the technician's own language when two say the same thing.
 RERANK_WEIGHTS: Final[dict[str, float]] = {
     "exact_identifier": 0.50,
     "identifier_coverage": 0.20,

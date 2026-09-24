@@ -146,7 +146,6 @@ def load_chunks(
 
     new_count = len(new_indices)
     return LoadReport(
-        documents_upserted=0,
         chunks_seen=len(chunks),
         chunks_new=new_count,
         chunks_changed=len(stale_indices) - new_count,

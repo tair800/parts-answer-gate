@@ -43,7 +43,7 @@ EMBEDDING_DIM: Final = 384
 #: the same bytes, and a cache in `~` is invisible when a run suddenly needs the network.
 EMBEDDING_CACHE_DIR: Final = ".fastembed_cache"
 
-#: The whole contract, in one place, so an evaluation artifact can quote it instead of describing it.
+#: The whole contract, in one place, so an artifact can quote it instead of describing it.
 EMBEDDING_POLICY: Final[dict[str, Any]] = {
     "model": EMBEDDING_MODEL_NAME,
     "runtime": "fastembed / ONNX, quantised, CPU, offline",
@@ -55,15 +55,15 @@ EMBEDDING_POLICY: Final[dict[str, Any]] = {
         "trusting this sentence."
     ),
     "chunking": (
-        "One embedding per stored chunk, over exactly `chunk.text` and nothing else: no re-window, "
-        "no overlap added at embed time, no title or metadata prepended. Chunk boundaries belong to "
-        "the corpus generator. Prepending metadata here would put text into the vector that the "
-        "citation check cannot locate in the source document, which is kill condition D's failure "
-        "mode arriving through the back door."
+        "One embedding per stored chunk, over exactly `chunk.text` and nothing else: no "
+        "re-window, no overlap added at embed time, no title or metadata prepended. Chunk "
+        "boundaries belong to the corpus generator. Prepending metadata here would put text into "
+        "the vector that the citation check cannot locate in the source document, which is kill "
+        "condition D's failure mode arriving through the back door."
     ),
     "query": (
-        "Identical treatment to a document: this model has no asymmetric query prefix, unlike E5 or "
-        "BGE. Adding one would encode queries into a different region of the space than the "
+        "Identical treatment to a document: this model has no asymmetric query prefix, unlike E5 "
+        "or BGE. Adding one would encode queries into a different region of the space than the "
         "passages they must match."
     ),
     "distance": "cosine",
@@ -113,7 +113,9 @@ class Embedder:
         """
         if not texts:
             return []
-        vectors = [[float(value) for value in vector] for vector in self._model.embed(list(texts))]
+        vectors = [
+            [float(value) for value in vector] for vector in self._model.embed(list(texts))
+        ]
         if len(vectors) != len(texts):
             raise RuntimeError(
                 f"embedder returned {len(vectors)} vectors for {len(texts)} texts; the loader's "
@@ -130,6 +132,6 @@ class Embedder:
         return self.embed_documents([text])[0]
 
     def measured_norm(self, probe: str = "hydraulic pump seal replacement") -> float:
-        """The real L2 norm of a real vector, for the artifact that claims vectors are normalised."""
+        """The real L2 norm of a real vector, for an artifact that claims vectors are normalised."""
         vector = self.embed_query(probe)
         return math.sqrt(sum(value * value for value in vector))

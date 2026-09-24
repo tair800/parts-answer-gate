@@ -23,6 +23,7 @@ of changed chunks is both realistic and reproducible.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -45,6 +46,7 @@ from parts_answer_gate.corpus.rng import stream
 from parts_answer_gate.domain import Chunk, Document, Effectivity, Language, SerialRange
 
 __all__ = [
+    "BULLETIN",
     "MANUAL",
     "BuiltCorpus",
     "BuiltDocument",
@@ -54,6 +56,10 @@ __all__ = [
     "Revision",
     "Spec",
     "build_corpus",
+    "omitted_topic",
+    "plan_bulletin",
+    "plan_revisions",
+    "spec_for",
 ]
 
 MANUAL = "manual"
@@ -129,6 +135,14 @@ class BuiltDocument:
     revision_index: int
     text: str
     chunks: tuple[Chunk, ...]
+    #: The topic each chunk states, positionally parallel to `chunks`. Kept beside the chunks
+    #: rather than on them because `Chunk` is the shared vocabulary and a generator-only field has
+    #: no business in it.
+    topic_keys: tuple[str, ...]
+
+
+#: (family_id, variant_id, topic_key, revision_index) -> Spec
+_SpecMap = dict[tuple[str, str, str, int], Spec]
 
 
 @dataclass(frozen=True)
@@ -276,9 +290,6 @@ def plan_bulletin(family: Family, revisions: tuple[Revision, ...], specs: _SpecM
     return Bulletin(family.family_id, current.valid_from + timedelta(days=offset), tuple(entries))
 
 
-_SpecMap = dict[tuple[str, str, str, int], Spec]
-
-
 # ------------------------------------------------------------------------------------ rendering
 
 
@@ -344,6 +355,263 @@ def _document_id(family: Family, series: str, code: str, language: Language) -> 
 
 
 def _checksum(body: str) -> str:
-    from hashlib import blake2b  # noqa: PLC0415
+    return hashlib.blake2b(body.encode("utf-8"), digest_size=16).hexdigest()
 
-    return blake2b(body.encode("utf-8"), digest_size=16).hexdigest()
+
+def _source_uri(family: Family, series: str, code: str, language: Language) -> str:
+    """A URI scheme that cannot be mistaken for a real publication, because it resolves nowhere."""
+    return f"synthetic://parts-answer-gate/{family.family_id}/{series}/{code}/{language.value}"
+
+
+def _render_manual(
+    family: Family,
+    revision: Revision,
+    revisions: tuple[Revision, ...],
+    specs: _SpecMap,
+    language: Language,
+) -> BuiltDocument:
+    """One revision of one family's manual, in one language."""
+    document_id = _document_id(family, "man", revision.code, language)
+    successor = (
+        _document_id(family, "man", revisions[revision.index + 1].code, language)
+        if revision.valid_to is not None
+        else None
+    )
+
+    cursor = _Cursor()
+    cursor.add(
+        _header(
+            language=language,
+            title=phrases.MANUAL_TITLE.of(language).format(product=family.product.of(language)),
+            revision=revision.code,
+            document_id=document_id,
+            valid_from=revision.valid_from,
+        )
+    )
+
+    chunks: list[Chunk] = []
+    topic_keys: list[str] = []
+    for variant_index, variant in enumerate(family.variants):
+        omitted = omitted_topic(family, variant)
+        for topic_index, topic in enumerate(TOPICS):
+            if topic.key == omitted:
+                continue
+            spec = specs[(family.family_id, variant.variant_id, topic.key, revision.index)]
+            block = _section_block(
+                language=language,
+                section=f"{variant_index + 1}.{topic_index + 1}",
+                topic_key=topic.key,
+                variant_id=variant.variant_id,
+                body=phrases.TOPIC_BODY[topic.key]
+                .of(language)
+                .format(
+                    variant=variant.variant_id,
+                    value=spec.value(topic.unit, language),
+                    part=spec.aux_part,
+                    n=spec.aux_number,
+                ),
+                serials=spec.serials,
+            )
+            cursor.add("\n\n")
+            start, end = cursor.add(block)
+            ordinal = len(chunks)
+            chunks.append(
+                Chunk(
+                    chunk_id=f"{document_id}-c{ordinal:03d}",
+                    document_id=document_id,
+                    family_id=family.family_id,
+                    language=language,
+                    text=block,
+                    section=f"{variant_index + 1}.{topic_index + 1}",
+                    page=1 + ordinal // _CHUNKS_PER_PAGE,
+                    start_offset=start,
+                    end_offset=end,
+                    effectivity=Effectivity(variant_id=variant.variant_id, serials=spec.serials),
+                    # Denormalised from the document on purpose: the effectivity filter is a SQL
+                    # predicate that must not need a join to decide whether a chunk was in force.
+                    valid_from=revision.valid_from,
+                    valid_to=revision.valid_to,
+                    superseded_by=successor,
+                )
+            )
+            topic_keys.append(topic.key)
+
+    body = cursor.text
+    document = Document(
+        document_id=document_id,
+        family_id=family.family_id,
+        title=phrases.MANUAL_TITLE.of(language).format(product=family.product.of(language)),
+        language=language,
+        revision=revision.code,
+        valid_from=revision.valid_from,
+        valid_to=revision.valid_to,
+        superseded_by=successor,
+        source_uri=_source_uri(family, MANUAL, revision.code, language),
+        checksum=_checksum(body),
+    )
+    return BuiltDocument(document, MANUAL, revision.index, body, tuple(chunks), tuple(topic_keys))
+
+
+def _render_bulletin(family: Family, bulletin: Bulletin, language: Language) -> BuiltDocument:
+    """The field bulletin that disagrees with the manual currently in force.
+
+    It is a normal in-force document with no supersession edge: the conflict is between two
+    documents that are both valid, which is precisely the case a system that only checks dates
+    cannot see.
+    """
+    document_id = _document_id(family, "bul", "fb1", language)
+    title = phrases.BULLETIN_TITLE.of(language).format(product=family.product.of(language))
+
+    cursor = _Cursor()
+    cursor.add(
+        _header(
+            language=language,
+            title=title,
+            revision="FB1",
+            document_id=document_id,
+            valid_from=bulletin.valid_from,
+        )
+    )
+
+    chunks: list[Chunk] = []
+    topic_keys: list[str] = []
+    for index, entry in enumerate(bulletin.entries):
+        topic = topic_by_key(entry.topic_key)
+        fleet = stream("bulletin-units", family.family_id, entry.variant_id)
+        body = phrases.BULLETIN_BODY.of(language).format(
+            variant=entry.variant_id,
+            heading=phrases.TOPIC_HEADING[entry.topic_key].of(language),
+            value=render_value(topic.unit, entry.number, language),
+            # Fleet sizes chosen to agree with the Russian genitive plural in the template; the
+            # count is cosmetic, a grammatically wrong corpus is not.
+            n=(8, 12, 14, 17)[fleet.randrange(4)],
+        )
+        block = _section_block(
+            language=language,
+            section=f"B.{index + 1}",
+            topic_key=entry.topic_key,
+            variant_id=entry.variant_id,
+            body=body,
+            serials=SerialRange(),
+        )
+        cursor.add("\n\n")
+        start, end = cursor.add(block)
+        chunks.append(
+            Chunk(
+                chunk_id=f"{document_id}-c{index:03d}",
+                document_id=document_id,
+                family_id=family.family_id,
+                language=language,
+                text=block,
+                section=f"B.{index + 1}",
+                page=1,
+                start_offset=start,
+                end_offset=end,
+                effectivity=Effectivity(variant_id=entry.variant_id, serials=SerialRange()),
+                valid_from=bulletin.valid_from,
+                valid_to=None,
+                superseded_by=None,
+            )
+        )
+        topic_keys.append(entry.topic_key)
+
+    body_text = cursor.text
+    document = Document(
+        document_id=document_id,
+        family_id=family.family_id,
+        title=title,
+        language=language,
+        revision="FB1",
+        valid_from=bulletin.valid_from,
+        valid_to=None,
+        superseded_by=None,
+        source_uri=_source_uri(family, BULLETIN, "fb1", language),
+        checksum=_checksum(body_text),
+    )
+    return BuiltDocument(document, BULLETIN, 0, body_text, tuple(chunks), tuple(topic_keys))
+
+
+# --------------------------------------------------------------------------------------- build
+
+
+def _plan_specs() -> tuple[dict[str, tuple[Revision, ...]], _SpecMap, dict[tuple[str, str], str]]:
+    revisions: dict[str, tuple[Revision, ...]] = {}
+    specs: _SpecMap = {}
+    omitted: dict[tuple[str, str], str] = {}
+    for family in FAMILIES:
+        revisions[family.family_id] = plan_revisions(family)
+        for variant_index, variant in enumerate(family.variants):
+            omitted[(family.family_id, variant.variant_id)] = omitted_topic(family, variant)
+            for topic in TOPICS:
+                for revision in revisions[family.family_id]:
+                    key = (family.family_id, variant.variant_id, topic.key, revision.index)
+                    specs[key] = spec_for(family, variant, variant_index, topic, revision.index)
+    return revisions, specs, omitted
+
+
+def _collect_parts(specs: _SpecMap) -> frozenset[str]:
+    """Every part number the corpus issues, with a uniqueness check rather than a hope.
+
+    `identifiers.part_number` is collision-free by size, not by construction. Two different keys
+    mapping to one number would silently make a part belong to two variants, so the assumption is
+    tested here and the build stops if it ever fails.
+    """
+    owners: dict[str, tuple[str, ...]] = {}
+    for (family_id, variant_id, topic_key, _), spec in specs.items():
+        issued = [("aux-part", family_id, variant_id, topic_key, spec.aux_part)]
+        if spec.part is not None:
+            generation = f"spec-part-g{spec.generation}"
+            issued.append((generation, family_id, variant_id, topic_key, spec.part))
+        for *key, number in issued:
+            existing = owners.setdefault(number, tuple(key))
+            if existing != tuple(key):
+                raise ValueError(
+                    f"part number {number} was issued to both {existing} and {tuple(key)}; the "
+                    "identifier space is too small or a key is not unique"
+                )
+    return frozenset(owners)
+
+
+def build_corpus() -> BuiltCorpus:
+    """The whole corpus, in memory, before anything is written or validated."""
+    revisions, specs, omitted = _plan_specs()
+    bulletins = {
+        family.family_id: plan_bulletin(family, revisions[family.family_id], specs)
+        for family in FAMILIES
+        if family.has_bulletin
+    }
+
+    documents: list[BuiltDocument] = []
+    chunk_by_key: dict[ChunkKey, Chunk] = {}
+    for family in FAMILIES:
+        for language in Language:
+            for revision in revisions[family.family_id]:
+                documents.append(
+                    _render_manual(family, revision, revisions[family.family_id], specs, language)
+                )
+            if family.family_id in bulletins:
+                documents.append(_render_bulletin(family, bulletins[family.family_id], language))
+
+    for built in documents:
+        for chunk, topic_key in zip(built.chunks, built.topic_keys, strict=True):
+            key: ChunkKey = (
+                chunk.family_id,
+                built.series,
+                built.revision_index,
+                chunk.language.value,
+                chunk.effectivity.variant_id,
+                topic_key,
+            )
+            if key in chunk_by_key:
+                raise ValueError(f"two chunks claim the same coordinates: {key}")
+            chunk_by_key[key] = chunk
+
+    return BuiltCorpus(
+        documents=tuple(documents),
+        revisions=revisions,
+        bulletins=bulletins,
+        specs=specs,
+        omitted_topics=omitted,
+        chunk_by_key=chunk_by_key,
+        issued_parts=_collect_parts(specs),
+    )

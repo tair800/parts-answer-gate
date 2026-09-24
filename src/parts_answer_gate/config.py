@@ -18,13 +18,15 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+from parts_answer_gate.store.engine import DATABASE_URL_ENV, DEFAULT_DATABASE_URL
+
 __all__ = ["Settings", "get_settings"]
 
-#: The local compose service. Deliberately a port no other project in this workspace uses, so a
-#: misconfigured run connects to nothing rather than to somebody else's database.
-DEFAULT_DATABASE_URL = (
-    "postgresql+psycopg://parts:parts_local_only@127.0.0.1:15440/parts_answer_gate"
-)
+# `DEFAULT_DATABASE_URL` is imported rather than declared here, and the import direction is
+# deliberate: `store/engine.py` is what actually opens a connection, and a settings module holding a
+# second copy of the string would be a second thing to keep in step with docker-compose.yml. This
+# file had its own copy with different credentials for about an hour, and nothing would have
+# connected out of the box.
 
 
 def _flag(name: str, *, default: bool) -> bool:
@@ -63,7 +65,7 @@ class Settings:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings(
-        database_url=os.environ.get("PAG_DATABASE_URL", DEFAULT_DATABASE_URL),
+        database_url=os.environ.get(DATABASE_URL_ENV, DEFAULT_DATABASE_URL),
         read_only=_flag("PAG_READ_ONLY", default=True),
         llm_api_key=os.environ.get("PAG_LLM_API_KEY") or None,
         corpus_dir=os.environ.get("PAG_CORPUS_DIR", "data/generated"),

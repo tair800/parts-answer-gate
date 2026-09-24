@@ -22,7 +22,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Final, TypeVar
+from typing import Final
 
 from sqlalchemy.orm import Session
 
@@ -38,8 +38,6 @@ from parts_answer_gate.store.queries import (
     fetch_candidates,
     identifiers_in_query,
 )
-
-_T = TypeVar("_T")
 
 __all__ = [
     "MIN_STAGE_DEPTH",
@@ -197,7 +195,7 @@ class Retriever:
         )
 
         # Measured end to end rather than summed from the stages: the difference between the two
-        # is the overhead nobody instrumented, and hiding it would make the published p95 optimistic.
+        # is the overhead nobody instrumented, and hiding it would flatter the published p95.
         timings["total"] = (time.perf_counter() - call_started) * 1000.0
         return RetrievalResult(
             chunks=chunks,
@@ -260,7 +258,7 @@ class Retriever:
         return hits
 
 
-def _timed(timings: dict[str, float], name: str, work: Callable[[], _T]) -> _T:
+def _timed[T](timings: dict[str, float], name: str, work: Callable[[], T]) -> T:
     """Run `work`, record its wall-clock cost in milliseconds, return what it returned.
 
     Per stage rather than one total, because the published p95 has to be attributable: a slow query
