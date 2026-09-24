@@ -1,10 +1,10 @@
 {
   "counts": {
     "documents": 75,
-    "families": 4,
-    "questions": 297
+    "families": 6,
+    "questions": 312
   },
-  "digest": "6ce06a968f9506e91a324ee1fe87f1164ded5160cab728a34cfb9a9f3a5bd80f",
+  "digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
   "documents": [
     "doc-ct4-drive-controller-man-a-en",
     "doc-ct4-drive-controller-man-a-ru",
@@ -84,6 +84,8 @@
   ],
   "families": [
     "fam-ct4-drive-controller",
+    "fam-gt-300-process-chiller",
+    "fam-lm-45-vacuum-blower",
     "fam-sw3-rotary-union",
     "fam-tr9-compressor",
     "fam-xp400-hydraulic-pump"
@@ -158,6 +160,21 @@
     "q-neg-nearmatch-5-en",
     "q-neg-nearmatch-5-ru",
     "q-neg-nearmatch-5-tr",
+    "q-neg-otherfamily-14-en",
+    "q-neg-otherfamily-14-ru",
+    "q-neg-otherfamily-14-tr",
+    "q-neg-otherfamily-2-en",
+    "q-neg-otherfamily-2-ru",
+    "q-neg-otherfamily-2-tr",
+    "q-neg-otherfamily-3-en",
+    "q-neg-otherfamily-3-ru",
+    "q-neg-otherfamily-3-tr",
+    "q-neg-otherfamily-8-en",
+    "q-neg-otherfamily-8-ru",
+    "q-neg-otherfamily-8-tr",
+    "q-neg-otherfamily-9-en",
+    "q-neg-otherfamily-9-ru",
+    "q-neg-otherfamily-9-tr",
     "q-neg-superseded-10-en",
     "q-neg-superseded-10-ru",
     "q-neg-superseded-10-tr",

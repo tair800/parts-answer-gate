@@ -98,6 +98,18 @@ class QuestionRun:
     #: because the family is only in hand while the document rows are loaded, and a second lookup
     #: later is a second chance to look up the wrong thing.
     cited_revision_keys: frozenset[str] = frozenset()
+    #: The same, for the evidence the gate **would** have approved had the swept threshold let the
+    #: question through. Equal to `cited_revision_keys` whenever an answer was actually given.
+    #:
+    #: The coverage curve re-decides every question at every threshold, so it needs to know what a
+    #: refused question would have cited. Without this it reads the empty citation set of an
+    #: abstention, `metrics.revision_incorrect` returns True on an empty set by design, and the
+    #: curve's wrong-answer axis rises as the threshold falls purely because more refusals enter the
+    #: numerator. That is a plot of "the shipped gate abstained here", drawn on an axis labelled
+    #: wrongness. `AnswerOutcome` has always documented that these fields must be filled for every
+    #: question including the refused ones; the runner did not fill them. ADR-003.
+    counterfactual_revision_keys: frozenset[str] = frozenset()
+    counterfactual_variants: frozenset[str] = frozenset()
 
     @property
     def outcome(self) -> GateOutcome:
@@ -322,6 +334,27 @@ def run_question(
         if item.chunk.chunk_id in cited and item.chunk.document_id in facts
     )
 
+    # What this question would have cited at a threshold that let it through. For an answer that
+    # was given this is the same evidence; for a refusal it is the evidence the gate looked at and
+    # declined, which is exactly what the counterfactual points on the curve need.
+    would_approve = (
+        decision.approved_chunks
+        if decision.approved_chunks
+        else answer_gate.supporting_chunks(result.chunks)
+    )
+    counterfactual_facts = (
+        facts if decision.approved_chunks else _document_facts(session, would_approve)
+    )
+    counterfactual_keys = frozenset(
+        revision_key(
+            counterfactual_facts[item.chunk.document_id][1],
+            counterfactual_facts[item.chunk.document_id][0],
+        )
+        for item in would_approve
+        if item.chunk.document_id in counterfactual_facts
+    )
+    counterfactual_variants = frozenset(item.chunk.effectivity.variant_id for item in would_approve)
+
     return QuestionRun(
         question_id=str(question["question_id"]),
         language=query.language,
@@ -331,6 +364,8 @@ def run_question(
         result=result,
         latency_ms=(time.perf_counter() - started) * 1000.0,
         cited_revision_keys=keys,
+        counterfactual_revision_keys=counterfactual_keys,
+        counterfactual_variants=counterfactual_variants,
     )
 
 
@@ -358,18 +393,18 @@ def _answer_outcome(
     supporting = frozenset(str(c) for c in question.get("supporting_chunk_ids", []) or [])
     decision = run.answer.decision
 
+    # The counterfactual evidence, not the empty set an abstention actually cited. `metrics`
+    # scores wrongness from these fields at every point on the swept curve, and an empty set reads
+    # as revision-incorrect by design — so passing the actual citations here would make every
+    # refusal a wrong answer at every threshold that would have answered it.
     return AnswerOutcome(
         question_id=run.question_id,
         language=run.language,
         outcome=decision.outcome,
         gate_score=decision.signals.term_coverage,
-        cited_revisions=run.cited_revision_keys,
+        cited_revisions=run.counterfactual_revision_keys,
         in_force_revisions=in_force_revisions,
-        cited_variants=frozenset(
-            item.chunk.effectivity.variant_id
-            for item in decision.approved_chunks
-            if item.chunk.chunk_id in run.cited_chunk_ids
-        ),
+        cited_variants=run.counterfactual_variants,
         asked_variant=run.query.variant_id,
         supporting_chunk_exists=bool(supporting),
         supporting_chunk_retrieved=bool(supporting & set(run.retrieved_ids)),

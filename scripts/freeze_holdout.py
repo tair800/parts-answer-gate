@@ -117,7 +117,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        frozen = freeze(args.artifacts, documents, questions, allow_refreeze=args.allow_refreeze)
+        frozen = freeze(
+            args.artifacts,
+            documents,
+            questions,
+            chunk_to_document=chunk_to_document,
+            allow_refreeze=args.allow_refreeze,
+        )
     except HoldoutDriftError as exc:
         print(str(exc), file=sys.stderr)
         return 1

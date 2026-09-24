@@ -131,11 +131,24 @@ def _digest_of(families: Iterable[str], documents: Iterable[str], questions: Ite
 def compute(
     documents: Iterable[Mapping[str, Any]], questions: Iterable[Mapping[str, Any]]
 ) -> FrozenHoldout:
-    """Apply the rule to a corpus and enumerate what falls on the hold-out side."""
+    """Apply the rule to a corpus and enumerate what falls on the hold-out side.
+
+    Families are collected from **questions as well as documents**, and the difference is not
+    cosmetic. ADR-001's unanswerable set includes questions about a product family that does not
+    exist in the corpus at all — that is the whole point of the `different_product_family` kind —
+    and such a family owns no documents. Enumerating from documents alone therefore dropped every
+    one of those questions out of the hold-out silently, whichever side of the line the rule put
+    them on, removing one of the seven unanswerable kinds from the graded set entirely.
+
+    The rule itself is unchanged and is still a pure function of the identifier. This is the
+    enumeration being corrected, not the draw being re-taken: the same `is_held_out` decides the
+    same families, and the questions it was already deciding for are now actually collected.
+    """
     documents = list(documents)
     questions = list(questions)
 
-    families = sorted({d["family_id"] for d in documents if is_held_out(str(d["family_id"]))})
+    named = {str(d["family_id"]) for d in documents} | {str(q["family_id"]) for q in questions}
+    families = sorted(family for family in named if is_held_out(family))
     held_families = set(families)
     held_documents = sorted(
         str(d["document_id"]) for d in documents if str(d["family_id"]) in held_families
@@ -229,6 +242,7 @@ def freeze(
     documents: Iterable[Mapping[str, Any]],
     questions: Iterable[Mapping[str, Any]],
     *,
+    chunk_to_document: Mapping[str, str] | None = None,
     allow_refreeze: bool = False,
 ) -> FrozenHoldout:
     """Materialise the membership, or confirm it has not moved.
@@ -245,7 +259,11 @@ def freeze(
     documents = list(documents)
     questions = list(questions)
 
-    leaks = verify_partition(documents, questions)
+    # The chunk map matters. `verify_partition`'s reference check resolves a question's supporting
+    # chunks to the documents that own them, and without the map it has nothing to resolve — so
+    # freezing ran a guard that inspected none of the references it exists to inspect, and reported
+    # clean because it had looked at nothing. The caller has the map; it is now passed.
+    leaks = verify_partition(documents, questions, chunk_to_document)
     if leaks:
         raise HoldoutDriftError(
             "the split does not partition cleanly, so freezing it would freeze a leak:\n  "

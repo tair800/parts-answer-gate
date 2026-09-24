@@ -278,9 +278,26 @@ def _gate(runs: RunSet, questions: Mapping[str, Mapping[str, Any]]) -> dict[str,
             {"question_id": r.question_id, "text": questions[r.question_id]["text"][:120]}
             for r in answered[:10]
         ],
+        # ADR-001 condition I: the share of the unanswerable set on which nothing was presented.
+        # `REVIEW` counts as withheld here, and that is the reading `gate.withholds_answer` states:
+        # nothing reaches the technician while a question sits in review. It is nonetheless the
+        # *lenient* reading of the word "abstention", so the strict split is published beside it —
+        # a floor of 0.90 leaves ten points of headroom, and a reader is entitled to know how much
+        # of the margin is refusal and how much is a review queue.
         "abstention_rate_on_unanswerable": (
             1.0 - len(answered) / len(unanswerable) if unanswerable else 0.0
         ),
+        "withheld_breakdown": {
+            "definition": "withheld = ABSTAIN or REVIEW; both present nothing to the technician",
+            "abstained": sum(1 for r in unanswerable if r.outcome is GateOutcome.ABSTAIN),
+            "sent_to_review": sum(1 for r in unanswerable if r.outcome is GateOutcome.REVIEW),
+            "answered": len(answered),
+            "strict_abstention_rate": (
+                sum(1 for r in unanswerable if r.outcome is GateOutcome.ABSTAIN) / len(unanswerable)
+                if unanswerable
+                else 0.0
+            ),
+        },
         "unanswerable_kinds": by_kind,
         "decision_precedes_generation": True,
         "model_can_override_gate": False,

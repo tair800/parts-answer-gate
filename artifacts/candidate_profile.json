@@ -15,24 +15,24 @@
     "fraction_at_or_below_top_k": 0.0
   },
   "holdout": {
-    "questions": 297,
+    "questions": 312,
     "min": 21,
     "p50": 21,
-    "p90": 22,
+    "p90": 23,
     "p95": 23,
-    "max": 23,
-    "mean": 21.28,
+    "max": 754,
+    "mean": 56.3,
     "at_or_below_top_k": 0,
     "fraction_at_or_below_top_k": 0.0
   },
   "development": {
-    "questions": 753,
+    "questions": 738,
     "min": 21,
     "p50": 21,
     "p90": 23,
-    "p95": 748,
+    "p95": 24,
     "max": 756,
-    "mean": 64.98,
+    "mean": 51.06,
     "at_or_below_top_k": 0,
     "fraction_at_or_below_top_k": 0.0
   },
