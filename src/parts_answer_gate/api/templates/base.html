@@ -118,7 +118,7 @@ cannot rebuild an index.">read-only</span>
     <span>
       {{ gate_report.failing | length }} of 12 predeclared kill conditions do not hold
       ({{ gate_report.failing | join(', ') }}){% if gate_report.vacuous_passes %}, and
-      {{ gate_report.vacuous_passes | join(', ') }} passes vacuously{% endif %}.
+      {{ gate_report.vacuous_passes | join(', ') }} passes near-vacuously{% endif %}.
       Thresholds were fixed before any source file existed and none was lowered.
       <a href="/evidence">See every verdict</a>.
     </span>

@@ -30,6 +30,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlencode
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -71,13 +72,21 @@ def _wait_for(base_url: str, timeout: float = 90.0) -> bool:
 
 
 def _example_question() -> dict[str, str]:
-    """A real answerable question, and a real correction, taken from the corpus.
+    """Real subjects for each screen, chosen from the corpus **and from the measured result**.
 
-    Hard-coding a question would mean the screenshots stop matching the corpus the moment it is
-    regenerated, and a screenshot that no longer reproduces is a screenshot nobody trusts.
+    The refusal and the failure are picked from `artifacts/gate.json` rather than assumed. An
+    earlier version took the first unanswerable question by id and captioned the shot "the system
+    refuses" — and the system answered it, because that question was one of the 47 unsupported
+    answers kill condition E fails on. The screenshot was evidence of a failure carrying a caption
+    claiming a success, which is the exact thing this project exists to argue against.
+
+    So: the abstention shot is a question the system **did** refuse, and the failure shot is one of
+    the Turkish or Russian questions it **did** answer without support.
     """
     questions = json.loads((CORPUS / "questions.json").read_text(encoding="utf-8"))
     questions = questions["questions"] if isinstance(questions, dict) else questions
+    by_id = {str(q["question_id"]): q for q in questions}
+
     answerable = sorted(
         (q for q in questions if q.get("answerable") and q["language"] == "en"),
         key=lambda q: str(q["question_id"]),
@@ -91,18 +100,32 @@ def _example_question() -> dict[str, str]:
     )
     correction = corrected[0] if corrected else None
 
-    unanswerable = sorted(
-        (q for q in questions if not q.get("answerable") and q["language"] == "en"),
-        key=lambda q: str(q["question_id"]),
-    )[0]
+    # Which question demonstrates which state is decided by **asking the running system**, in
+    # `_probe` below. gate.json's `unsupported_examples` is capped at ten of the forty-seven, so
+    # picking "an unanswerable question not in that list" selected one of the other thirty-seven
+    # answered ones and captioned it a refusal. Reading a truncated list and calling it the result
+    # is the same class of error as reading a metric and not its denominator.
+    refused: dict[str, object] | None = None
+    failure: dict[str, object] | None = None
+    _ = by_id
+
+    def described(record: dict[str, object] | None, prefix: str) -> dict[str, str]:
+        if record is None:
+            return {}
+        return {
+            f"{prefix}": str(record["text"]),
+            f"{prefix}_variant": str(record.get("variant_id") or ""),
+            f"{prefix}_as_of": str(record["as_of"]),
+            f"{prefix}_lang": str(record["language"]),
+            f"{prefix}_kind": str(record.get("unanswerable_kind") or ""),
+        }
 
     return {
         "answerable": str(answerable["text"]),
         "answerable_variant": str(answerable.get("variant_id") or ""),
         "answerable_as_of": str(answerable["as_of"]),
-        "unanswerable": str(unanswerable["text"]),
-        "unanswerable_variant": str(unanswerable.get("variant_id") or ""),
-        "unanswerable_as_of": str(unanswerable["as_of"]),
+        **described(refused, "refused"),
+        **described(failure, "failure"),
         "corrected_valid_from": str(correction["valid_from"]) if correction else "",
         "corrected_valid_to": str(correction["valid_to"]) if correction else "",
         "corrected_known_to": str(correction["known_to"]) if correction else "",
@@ -110,93 +133,169 @@ def _example_question() -> dict[str, str]:
     }
 
 
+def _outcome(base_url: str, record: dict[str, Any]) -> str:
+    """What the system actually did with this question, asked through the shipped endpoint."""
+    params = {
+        "q": str(record["text"]),
+        "variant": str(record.get("variant_id") or ""),
+        "as_of": str(record["as_of"]),
+        "lang": str(record["language"]),
+    }
+    try:
+        with urllib.request.urlopen(  # noqa: S310
+            f"{base_url}/api/ask?{urlencode(params)}", timeout=60
+        ) as response:
+            payload = json.loads(response.read())
+    except (urllib.error.URLError, OSError, TimeoutError, ValueError):
+        return "unknown"
+    return str(payload.get("decision", {}).get("outcome", "unknown"))
+
+
+def _probe(base_url: str, example: dict[str, str]) -> dict[str, str]:
+    """Fill in the refusal and the failure by observing the system, in corpus order.
+
+    Bounded at forty questions per role so the capture does not turn into a second evaluation run.
+    If neither is found the corresponding screen is simply not captured, rather than a screen being
+    captured under a caption that does not describe it.
+    """
+    questions = json.loads((CORPUS / "questions.json").read_text(encoding="utf-8"))
+    questions = questions["questions"] if isinstance(questions, dict) else questions
+    unanswerable = [q for q in questions if not q.get("answerable")]
+    unanswerable.sort(key=lambda q: str(q["question_id"]))
+
+    found: dict[str, str] = {}
+
+    # A refusal, in English, that the system genuinely withheld.
+    for record in [q for q in unanswerable if q["language"] == "en"][:40]:
+        if _outcome(base_url, record) in {"abstain", "review"}:
+            found.update(
+                {
+                    "refused": str(record["text"]),
+                    "refused_variant": str(record.get("variant_id") or ""),
+                    "refused_as_of": str(record["as_of"]),
+                    "refused_lang": str(record["language"]),
+                    "refused_kind": str(record.get("unanswerable_kind") or ""),
+                }
+            )
+            break
+
+    # A failure the gate actually made, in Turkish or Russian, which is where they concentrate.
+    for record in [q for q in unanswerable if q["language"] in {"tr", "ru"}][:40]:
+        if _outcome(base_url, record) == "answer":
+            found.update(
+                {
+                    "failure": str(record["text"]),
+                    "failure_variant": str(record.get("variant_id") or ""),
+                    "failure_as_of": str(record["as_of"]),
+                    "failure_lang": str(record["language"]),
+                    "failure_kind": str(record.get("unanswerable_kind") or ""),
+                }
+            )
+            break
+
+    return {**example, **found}
+
+
 def _shots(example: dict[str, str]) -> list[Shot]:
-    answered = urlencode(
-        {
-            "q": example["answerable"],
-            "variant": example["answerable_variant"],
-            "as_of": example["answerable_as_of"],
-            "lang": "en",
-        }
-    )
-    refused = urlencode(
-        {
-            "q": example["unanswerable"],
-            "variant": example["unanswerable_variant"],
-            "as_of": example["unanswerable_as_of"],
-            "lang": "en",
-        }
-    )
-    turkish = urlencode(
-        {
-            "q": example["answerable"],
-            "variant": example["answerable_variant"],
-            "as_of": example["answerable_as_of"],
-            "lang": "tr",
-        }
-    )
+    def url(text: str, variant: str, as_of: str, lang: str, **extra: str) -> str:
+        return "/?" + urlencode(
+            {"q": text, "variant": variant, "as_of": as_of, "lang": lang, **extra}
+        )
 
     shots = [
         Shot("01-ask", "/", "The console before a question is asked."),
         Shot(
             "02-answered",
-            f"/?{answered}",
-            "An answered question: the extracted span, the citation it came from, and the gate's "
-            "reasoning.",
+            url(
+                example["answerable"],
+                example["answerable_variant"],
+                example["answerable_as_of"],
+                "en",
+            ),
+            "An answered question: the extracted span, the citation it came from with its "
+            "character offset, and every gate signal that permitted it.",
         ),
-        Shot(
-            "03-refused",
-            f"/?{refused}",
-            "A question the corpus cannot support. The system refuses and says which rule fired — "
-            "this is the screen the project exists for.",
-        ),
+    ]
+
+    if example.get("refused"):
+        shots.append(
+            Shot(
+                "03-refused",
+                url(
+                    example["refused"],
+                    example.get("refused_variant", ""),
+                    example["refused_as_of"],
+                    example.get("refused_lang", "en"),
+                ),
+                "A question the corpus cannot support, and the system withholds. The kind is "
+                f"{example.get('refused_kind') or 'unanswerable'}. This is the screen the project "
+                "exists for.",
+            )
+        )
+
+    shots += [
         Shot(
             "04-evidence",
             "/evidence",
-            "Every measured number, traced to the artifact that holds it.",
+            "Every measured number, the twelve kill conditions with their verdicts, and the "
+            "release-gate banner that does not go away.",
         ),
         Shot("05-failures", "/failures", "The failure cases, published rather than hidden."),
         Shot(
             "06-provenance",
             "/provenance",
-            "Corpus provenance, the hold-out freeze, and the synthetic notice.",
+            "Corpus provenance, the hold-out freeze digest, and the synthetic notice.",
         ),
-        Shot("07-turkish", f"/?{turkish}", "The same question in Turkish, against the same index."),
+        Shot(
+            "07-turkish",
+            url(
+                example["answerable"],
+                example["answerable_variant"],
+                example["answerable_as_of"],
+                "tr",
+            ),
+            "The same question in Turkish, against the same index.",
+        ),
     ]
 
-    # The two knowledge dates, which only exist if the corpus generated a correction.
+    if example.get("failure"):
+        shots.append(
+            Shot(
+                "10-unsupported-answer-failure",
+                url(
+                    example["failure"],
+                    example.get("failure_variant", ""),
+                    example["failure_as_of"],
+                    example.get("failure_lang", "en"),
+                ),
+                "**Kill condition E failing, live.** The corpus contains no passage that answers "
+                f"this ({example.get('failure_kind') or 'unanswerable'}), and the gate answers it "
+                "anyway. Every one of these failures is Turkish or Russian: term coverage is "
+                "computed with a bidirectional prefix match that errs towards covering.",
+            )
+        )
+
     if example["corrected_known_to"]:
         midpoint = example["corrected_valid_from"]
-        shots.extend(
-            [
-                Shot(
-                    "08-knowledge-now",
-                    "/?"
-                    + urlencode(
-                        {
-                            "q": "specification",
-                            "as_of": midpoint,
-                            "lang": "en",
-                        }
-                    ),
-                    "Asked about a past date with today's knowledge: the correction is returned.",
+        shots += [
+            Shot(
+                "08-knowledge-now",
+                url("specification", "", midpoint, "en"),
+                "A past date asked with today's knowledge: the correction is returned.",
+            ),
+            Shot(
+                "09-knowledge-then",
+                url(
+                    "specification",
+                    "",
+                    midpoint,
+                    "en",
+                    known_as_of=example["corrected_known_to"],
                 ),
-                Shot(
-                    "09-knowledge-then",
-                    "/?"
-                    + urlencode(
-                        {
-                            "q": "specification",
-                            "as_of": midpoint,
-                            "known_as_of": example["corrected_known_to"],
-                            "lang": "en",
-                        }
-                    ),
-                    "The same date asked with the knowledge of the time: the original is returned, "
-                    "because a later correction does not rewrite what was believed.",
-                ),
-            ]
-        )
+                "The same date asked with the knowledge of the time: the original is returned, "
+                "because a later correction does not rewrite what was believed.",
+            ),
+        ]
     return shots
 
 
@@ -248,6 +347,12 @@ def main(argv: list[str] | None = None) -> int:
         if not _wait_for(base_url):
             print(f"[screenshots] {base_url} never became healthy", file=sys.stderr)
             return 1
+
+        example = _probe(base_url, example)
+        print(
+            f"[screenshots] refusal: {'found' if example.get('refused') else 'none found'} · "
+            f"unsupported answer: {'found' if example.get('failure') else 'none found'}"
+        )
 
         args.output.mkdir(parents=True, exist_ok=True)
         captions: dict[str, str] = {}
