@@ -196,8 +196,18 @@ def _release_gate(config: Settings) -> dict[str, Any]:
 
 
 def _context(config: Settings, **extra: Any) -> dict[str, Any]:
+    """The template context, carrying the two settings a page renders and **not the object**.
+
+    `Settings` holds `database_url` and `llm_api_key`. Passing it whole put a live DSN and a model
+    key one `{{ settings.database_url }}` away from being rendered into a public page by anybody
+    adding a debug line, and no template has ever used it. The two fields the header actually shows
+    are passed by value instead, which makes the mistake impossible rather than merely absent.
+
+    `tests/test_no_credentials_in_responses.py` renders every screen with a sentinel DSN and a
+    sentinel key in the environment and asserts neither string comes back, so the guard observes
+    responses rather than inspecting template source.
+    """
     return {
-        "settings": config,
         "environment": config.environment,
         "read_only": config.read_only,
         "gate_report": _release_gate(config),
