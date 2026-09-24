@@ -26,7 +26,7 @@ from __future__ import annotations
 import enum
 import re
 from datetime import date
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -166,7 +166,13 @@ class Document(_Frozen):
     #: 2021 and known from 2025, and the two questions have different right answers. Without this
     #: field a correction silently rewrites history, and an audit asking "what did the technician
     #: have in front of them?" cannot be answered at all.
-    known_from: date
+    #:
+    #: Defaults to `valid_from`, which is exact for any document that has never been corrected: it
+    #: was believed from the day it came into force, and still is. That is the same rule migration
+    #: 0002 backfills with, so a row written before the second axis existed and a model constructed
+    #: without it agree. A correction must state its own `known_from`, and the validator below
+    #: refuses the half-corrected shapes.
+    known_from: date = None  # type: ignore[assignment]
     known_to: date | None = None
     #: The document that corrected this one's *knowledge* — same validity period, better
     #: information. Distinct from `superseded_by`, which replaces a revision going forward.
@@ -191,6 +197,14 @@ class Document(_Frozen):
                 "neither"
             )
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_known_from(cls, data: Any) -> Any:
+        """Fill `known_from` from `valid_from` when the caller did not state one."""
+        if isinstance(data, dict) and data.get("known_from") is None:
+            data = {**data, "known_from": data.get("valid_from")}
+        return data
 
     @model_validator(mode="after")
     def _correction_is_consistent(self) -> Self:
@@ -256,10 +270,19 @@ class Chunk(_Frozen):
     #: Denormalised from the document, same as validity. Both axes live on the chunk so the
     #: candidate-set predicate stays a single-table `WHERE` and keeps running before ranking — a
     #: join here would be the thing that tempts somebody to filter afterwards instead.
-    known_from: date
+    #:
+    #: Defaults to `valid_from`; see `Document.known_from`.
+    known_from: date = None  # type: ignore[assignment]
     known_to: date | None = None
     superseded_by: str | None = None
     corrected_by: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_known_from(cls, data: Any) -> Any:
+        if isinstance(data, dict) and data.get("known_from") is None:
+            data = {**data, "known_from": data.get("valid_from")}
+        return data
 
     @property
     def part_numbers(self) -> frozenset[str]:

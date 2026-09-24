@@ -34,9 +34,10 @@ from sqlalchemy.orm import Session
 
 from parts_answer_gate.domain import Language, Query
 from parts_answer_gate.retrieval.pipeline import Retriever
+from parts_answer_gate.store.effectivity import applies_in_python, candidate_filter
 from parts_answer_gate.store.engine import build_engine, database_url, session_scope
 from parts_answer_gate.store.queries import fetch_candidates
-from parts_answer_gate.store.effectivity import applies_in_python, candidate_filter
+from parts_answer_gate.store.schema import CHUNK_READ_COLUMNS, chunk_from_mapping
 
 CORPUS = Path(__file__).resolve().parents[1] / "data" / "generated"
 
@@ -222,7 +223,8 @@ def test_the_knowledge_boundary_is_half_open_like_validity(
     pair = {str(original["document_id"]), str(correction["correction"]["document_id"])}
 
     assert len(on_the_day & pair) == 1, (
-        f"on the correction date exactly one of the pair must apply; got {sorted(on_the_day & pair)}"
+        "on the correction date exactly one of the pair must apply; got "
+        f"{sorted(on_the_day & pair)}"
     )
     assert str(correction["correction"]["document_id"]) in on_the_day, (
         "half-open on the lower bound means the correction applies from its own known_from"
@@ -263,8 +265,9 @@ def test_a_later_correction_does_not_rewrite_the_historical_answer(
     # And the text really is the earlier text, not the corrected text wearing the earlier id.
     stored, corrected_text = session.execute(
         sql_text(
-            "SELECT (SELECT string_agg(text, '' ORDER BY chunk_id) FROM chunk WHERE document_id=:a),"
-            "       (SELECT string_agg(text, '' ORDER BY chunk_id) FROM chunk WHERE document_id=:b)"
+            "SELECT"
+            " (SELECT string_agg(text, '' ORDER BY chunk_id) FROM chunk WHERE document_id=:a),"
+            " (SELECT string_agg(text, '' ORDER BY chunk_id) FROM chunk WHERE document_id=:b)"
         ),
         {"a": str(original["document_id"]), "b": str(correction["correction"]["document_id"])},
     ).one()
@@ -317,12 +320,13 @@ def test_the_sql_predicate_and_the_domain_model_admit_the_same_chunks(
 
 
 def _family_chunks(session: Session, family_id: str) -> list[Any]:
-    from parts_answer_gate.store.schema import CHUNK_READ_COLUMNS, chunk_from_mapping
-
+    # Column list interpolated from a module constant, never from anything a caller supplies.
     columns = ", ".join(CHUNK_READ_COLUMNS)
     rows = (
         session.execute(
-            sql_text(f"SELECT {columns} FROM chunk WHERE family_id = :f AND language = 'en'"),
+            sql_text(
+                f"SELECT {columns} FROM chunk WHERE family_id = :f AND language = 'en'"  # noqa: S608
+            ),
             {"f": family_id},
         )
         .mappings()
