@@ -75,7 +75,19 @@
     button { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer; }
     footer { color:var(--muted); font-size:13px; border-top:1px solid var(--line);
       margin-top:40px; padding:16px; text-align:center; }
-    @media (max-width:640px){ main{padding:16px} header.top{padding:12px 16px} }
+    .gate-banner {
+      background:#3a1113; border-bottom:1px solid #7f1d1d; color:#fecaca;
+      padding:12px 24px; font-size:14px; line-height:1.5;
+    }
+    .gate-banner strong { color:#fca5a5; letter-spacing:0.02em; margin-right:10px; }
+    .gate-banner a { color:#fecaca; }
+    .gate-banner.ok { background:#052e16; border-bottom-color:#166534; color:#bbf7d0; }
+    @media (prefers-color-scheme: light) {
+      .gate-banner { background:#fef2f2; border-bottom-color:#fecaca; color:#7f1d1d; }
+      .gate-banner strong { color:#991b1b; }
+      .gate-banner a { color:#7f1d1d; }
+    }
+    @media (max-width:640px){ main{padding:16px} header.top{padding:12px 16px} .gate-banner{padding:10px 16px} }
   </style>
 </head>
 <body>
@@ -95,6 +107,25 @@
 cannot rebuild an index.">read-only</span>
     {% endif %}
   </header>
+  {#
+    Above the fold, on every screen, and not dismissible. The project's own release gate failed and
+    the console says so before it says anything else — anything less would be the selective
+    reporting this whole system argues against.
+  #}
+  {% if gate_report and gate_report.release_gate == "FAILED" %}
+  <div class="gate-banner">
+    <strong>ORIGINAL RELEASE GATE: FAILED</strong>
+    <span>
+      {{ gate_report.failing | length }} of 12 predeclared kill conditions do not hold
+      ({{ gate_report.failing | join(', ') }}){% if gate_report.vacuous_passes %}, and
+      {{ gate_report.vacuous_passes | join(', ') }} passes vacuously{% endif %}.
+      Thresholds were fixed before any source file existed and none was lowered.
+      <a href="/evidence">See every verdict</a>.
+    </span>
+  </div>
+  {% elif gate_report and gate_report.release_gate == "PASSED" %}
+  <div class="gate-banner ok"><strong>ORIGINAL RELEASE GATE: PASSED</strong></div>
+  {% endif %}
   <main>{% block content %}{% endblock %}</main>
   <footer>
     Every document here is <strong>synthetic</strong>, generated from a committed seed. It is not a

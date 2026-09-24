@@ -6,13 +6,15 @@
 #   make corpus     the synthetic trilingual corpus, from a committed seed
 #   make index      embed and load it
 #   make artifacts  the evidence the kill test grades
-#   make test       the whole suite
+#   make test       the engineering suite
+#   make release-gate  the predeclared kill test, reported
 #   make console    the Answer Gate Lab on http://127.0.0.1:8071
 #
 # `make evidence` is the whole chain and is what CI runs.
 
-.PHONY: help setup db db-down migrate corpus determinism index artifacts artifacts-check test \
-        fast lint types breaches console evidence screenshots clean
+.PHONY: help setup db db-down migrate corpus determinism index candidates artifacts \
+        artifacts-check test release-gate fast lint types breaches console evidence \
+        screenshots clean
 
 PY := .venv/Scripts/python.exe
 ifeq ($(OS),)
@@ -59,8 +61,11 @@ types: ## mypy --strict
 fast: lint types ## everything that needs no infrastructure
 	$(PY) -m pytest tests -q --ignore=tests/test_kill_criteria.py
 
-test: ## the whole suite, kill criteria included
-	$(PY) -m pytest tests -q
+test: ## the engineering suite -- everything except the predeclared kill test
+	$(PY) -m pytest tests -q --ignore=tests/test_kill_criteria.py
+
+release-gate: ## run the predeclared kill test and report the release gate
+	$(PY) scripts/release_gate.py
 
 breaches: ## plant defects into every guarantee and check each is caught
 	$(PY) scripts/plant_breaches.py
@@ -71,9 +76,14 @@ console: ## serve the Answer Gate Lab
 screenshots: ## capture the console's screens into docs/screenshots/
 	$(PY) scripts/screenshots.py
 
-evidence: corpus determinism migrate index artifacts breaches test ## the full chain CI runs
+candidates: ## how many passages the eligibility filter leaves, against top_k
+	$(PY) scripts/candidate_profile.py
+
+evidence: corpus determinism migrate index candidates artifacts breaches test release-gate ## the full chain
 	@echo
-	@echo "evidence rebuilt and graded against the predeclared thresholds"
+	@echo "The engineering suite is above. The release gate is the last block, and it FAILED:"
+	@echo "three of the twelve predeclared kill conditions do not hold and a fourth passes"
+	@echo "vacuously. That is the published result, not a build error. See DECISIONS.md ADR-003."
 
 clean: ## remove generated fixtures and caches
 	rm -rf data/generated .pytest_cache .mypy_cache .ruff_cache

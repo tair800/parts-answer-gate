@@ -96,11 +96,31 @@ def _artifacts(config: Settings) -> dict[str, Any]:
     return loaded
 
 
+def _release_gate(config: Settings) -> dict[str, Any]:
+    """The release-gate verdict, read from `artifacts/release_gate.json`.
+
+    On every screen and above the fold, because the honest headline for this project is that its
+    **original release gate failed** — three of twelve predeclared kill conditions do not hold and a
+    fourth passes vacuously. A console that showed only the working parts would be the same
+    selective reporting the project exists to argue against, and it would be doing it on the page a
+    visitor actually looks at.
+    """
+    path = Path(config.artifacts_dir) / "release_gate.json"
+    if not path.is_file():
+        return {"release_gate": "NOT RUN", "failing": [], "vacuous_passes": []}
+    try:
+        payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"release_gate": "UNREADABLE", "failing": [], "vacuous_passes": []}
+    return payload
+
+
 def _context(config: Settings, **extra: Any) -> dict[str, Any]:
     return {
         "settings": config,
         "environment": config.environment,
         "read_only": config.read_only,
+        "gate_report": _release_gate(config),
         **extra,
     }
 

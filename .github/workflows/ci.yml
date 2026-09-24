@@ -1,3 +1,19 @@
+# ENGINEERING lanes and the RELEASE GATE are different questions, and this file keeps them apart.
+#
+# The original release gate **failed**: three of ADR-001's twelve predeclared kill conditions do not
+# hold and a fourth passes vacuously, and the project is closed as a pre-registered negative result.
+# That must not make the software build permanently red — a red build is one nobody reads, and a
+# regression would then hide behind the disclosed failure. It must equally not be laundered into a
+# pass by an `xfail` or a deletion, which is the one thing ADR-001 forbids.
+#
+# So the `engineering` lanes run everything except the kill test and must be GREEN: lint, types,
+# unit tests, a real pgvector integration, the bitemporal behaviour, citation validation, artifact
+# reproduction, the planted breaches and the image. The `release-gate` lane runs the kill test
+# through `scripts/release_gate.py`, prints `ORIGINAL RELEASE GATE: FAILED`, and goes red only when
+# reality diverges from the pinned record in `DISCLOSED_FAILURES` — in either direction. A condition
+# that starts failing is a regression; a disclosed failure that starts passing needs a human to
+# decide whether the fix was legitimate or the hold-out was tuned against.
+#
 # Two lanes that matter and three that support them.
 #
 # `fast` is what a pull request waits on: lint, types, and every test that needs no database and no
@@ -35,7 +51,7 @@ env:
 
 jobs:
   fast:
-    name: lint, types, unit tests
+    name: engineering — lint, types, unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -62,7 +78,7 @@ jobs:
         run: uv run pytest tests -q --ignore=tests/test_kill_criteria.py
 
   evidence:
-    name: pgvector, corpus, evaluation, kill criteria
+    name: engineering — pgvector, corpus, evaluation, artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -133,13 +149,23 @@ jobs:
         # by hand. Evidence only a person can regenerate is not evidence.
         run: uv run python scripts/build_artifacts.py
 
-      - name: Grade it against the predeclared thresholds
+      - name: The predeclaration guard
         # `test_kill_criteria.py` has not been edited since it was committed with zero source files,
-        # and `test_predeclaration.py` fails the build if anything in it learns to skip.
-        run: uv run pytest tests/test_kill_criteria.py tests/test_predeclaration.py -q
+        # and `test_predeclaration.py` fails the build if anything in it learns to skip or if a
+        # threshold moved. That check belongs here, in the green lane: it is a property of the
+        # repository, not of the result.
+        run: uv run pytest tests/test_predeclaration.py -q
 
-      - name: Full suite against a real database
-        run: uv run pytest tests -q
+      - name: Engineering suite against a real database
+        # Everything except the kill test, which the release-gate lane reports separately. This is
+        # the lane that says whether the software works.
+        run: uv run pytest tests -q --ignore=tests/test_kill_criteria.py
+
+      - name: The README quotes what the artifacts measured
+        run: uv run python scripts/readme_numbers.py --check
+
+      - name: The committed evidence is current
+        run: uv run python scripts/check_artifacts_current.py
 
       - name: Publish the artifacts
         if: always()
@@ -149,8 +175,65 @@ jobs:
           path: artifacts/
           retention-days: 30
 
+  release-gate:
+    name: ORIGINAL RELEASE GATE (reported, not laundered)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: parts
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: parts_answer_gate
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U parts -d parts_answer_gate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      qdrant:
+        image: qdrant/qdrant:v1.19.0
+        ports: ["6333:6333"]
+        options: >-
+          --health-cmd "bash -c ':> /dev/tcp/127.0.0.1/6333'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --frozen
+      - name: Cache the embedding model
+        uses: actions/cache@v4
+        with:
+          path: .fastembed_cache
+          key: fastembed-paraphrase-multilingual-MiniLM-L12-v2-v1
+      - name: Rebuild the evidence
+        run: |
+          uv run alembic upgrade head
+          uv run python scripts/generate_corpus.py
+          uv run python scripts/seed_index.py
+          uv run python scripts/candidate_profile.py
+          uv run python scripts/build_artifacts.py
+      - name: Report the release gate
+        # Exits 0 while the outcome matches the pinned record, which currently reads FAILED on E, F
+        # and H. It exits non-zero on any divergence, so this lane is a regression detector rather
+        # than a rubber stamp — and it never converts a failed condition into a pass.
+        run: uv run python scripts/release_gate.py
+      - name: Publish the gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate
+          path: artifacts/release_gate.json
+          retention-days: 90
+
   falsifiability:
-    name: planted breaches
+    name: engineering — planted breaches
     # Only where it is worth the minutes; never advisory.
     if: github.event_name == 'push' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
@@ -215,7 +298,7 @@ jobs:
         run: git diff --exit-code -- src tests scripts alembic
 
   docker:
-    name: image builds, migrates and serves
+    name: engineering — image builds, migrates and serves
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
