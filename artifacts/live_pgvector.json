@@ -1,0 +1,36 @@
+{
+  "is_synthetic_corpus": true,
+  "host": "<neon>.eu-central-1.aws",
+  "what_this_is": "the deployed database describing itself, read from pg_catalog and from the planner's own output, so that the public deployment's vector retrieval is evidenced rather than asserted",
+  "does_not_affect_kill_condition_K": "K requires a vector INDEX SCAN in the plan. The effectivity predicate leaves a couple of dozen candidate rows and PostgreSQL prefers a sequential scan over so few, so K FAILS here exactly as it does locally. A real extension, a real vector column and a real HNSW index are a different claim from the one K makes, and neither rescues it",
+  "declared_build_parameters": {
+    "index_name": "ix_chunk_embedding_hnsw",
+    "method": "hnsw",
+    "opclass": "vector_cosine_ops",
+    "m": 16,
+    "ef_construction": 200
+  },
+  "observed": {
+    "server_version": "16.15 (eb11870)",
+    "vector_extension_version": "0.8.0",
+    "embedding_column_type": "vector(384)",
+    "hnsw_index_definition": "CREATE INDEX ix_chunk_embedding_hnsw ON public.chunk USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='200')",
+    "documents": 252,
+    "chunks": 12420,
+    "chunks_with_an_embedding": 12420,
+    "superseded_documents": 192,
+    "corrected_documents": 24
+  },
+  "checks": {
+    "extension_is_installed": true,
+    "column_is_a_vector_type": true,
+    "hnsw_index_exists": true,
+    "index_uses_cosine_ops": true,
+    "index_carries_the_declared_build_parameters": true,
+    "every_chunk_is_embedded": true,
+    "distance_operator_is_used": true,
+    "both_time_axes_have_rows": true
+  },
+  "all_checks_hold": true,
+  "probe_plan": "Limit  (cost=240.76..253.62 rows=10 width=43) (actual time=189.758..195.507 rows=10 loops=1)\n  Output: chunk.chunk_id, ((chunk.embedding <=> $0))\n  InitPlan 1 (returns $0)\n    ->  Limit  (cost=0.00..0.23 rows=1 width=18) (actual time=0.091..0.092 rows=1 loops=1)\n          Output: chunk_1.embedding\n          ->  Seq Scan on public.chunk chunk_1  (cost=0.00..2801.20 rows=12420 width=18) (actual time=0.090..0.091 rows=1 loops=1)\n                Output: chunk_1.embedding\n                Filter: (chunk_1.embedding IS NOT NULL)\n  ->  Index Scan using ix_chunk_embedding_hnsw on public.chunk  (cost=240.54..16212.40 rows=12420 width=43) (actual time=189.757..195.501 rows=10 loops=1)\n        Output: chunk.chunk_id, (chunk.embedding <=> $0)\n        Order By: (chunk.embedding <=> $0)\n        Filter: (chunk.embedding IS NOT NULL)\nQuery Identifier: 5113533294452479496\nPlanning Time: 1.833 ms\nExecution Time: 195.588 ms"
+}

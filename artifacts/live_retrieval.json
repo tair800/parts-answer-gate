@@ -1,0 +1,510 @@
+{
+  "is_synthetic_corpus": true,
+  "base_url": "https://parts-answer-gate.onrender.com",
+  "what_this_is": "six questions asked over HTTP against the deployed service and its Neon PostgreSQL pgvector index, to show the deployed system behaves as the in-process artifacts describe",
+  "what_this_is_not": "an evaluation. It scores nothing and changes no published metric. The multilingual smoke below is three queries, not the per-language measurement in multilingual.json, and none of it bears on the twelve predeclared kill conditions -- in particular a working pgvector deployment does not make kill condition K pass, because K asks for an index scan in the query plan and the planner prefers a sequential scan over the small filtered candidate set",
+  "split_used": "development",
+  "all_cases_passed": true,
+  "cases": [
+    {
+      "key": "A_supported_answered",
+      "claim": "a supported question is answered from a cited passage",
+      "parameters": {
+        "q": "To what torque are the baseplate mounting foot bolts of the AX7-160 tightened?",
+        "lang": "en",
+        "variant": "AX7-160",
+        "as_of": "2023-01-01"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 347.1,
+        "outcome": "answer",
+        "reason": "5 passages in force on 2023-01-01 agree on one variant and cover 1.00 of the question's terms",
+        "signals": {
+          "top_fused_score": 1.1590909090909092,
+          "supporting_chunks": 5,
+          "term_coverage": 1.0,
+          "variant_agreement": true,
+          "superseded_present": false,
+          "conflicting_evidence": false,
+          "exact_identifier_hit": false
+        },
+        "text": "Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 52 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected.\n\nMounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 40 Nm, working outward from the dowel in a star pattern over three passes.\n\nDrive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 48 Nm in a diagonal sequence.\n\nHydraulic reservoir capacity — AX7-160\n\nGearbox oil grade — AX7-160",
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.12",
+            "quote": "Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 52 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.11",
+            "quote": "Mounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 40 Nm, working outward from the dowel in a star pattern over three passes."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.1",
+            "quote": "Drive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 48 Nm in a diagonal sequence."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.3",
+            "quote": "Hydraulic reservoir capacity — AX7-160"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.9",
+            "quote": "Gearbox oil grade — AX7-160"
+          }
+        ],
+        "approved_evidence": [
+          "1.12. Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 52 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected. Every foot must bed fully on shim pack DF-3277-S before torque is applied; pulling a soft foot down with the bolt distorts the housing and drags the shaft out of alignment. Re-check each foot",
+          "1.11. Mounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 40 Nm, working outward from the dowel in a star pattern over three passes. Fit gasket GY-5680-F dry; a lubricated or re-used gasket bleeds off preload and the joint relaxes below the specified figure within a shift. Do not torque the flange while the casing is above 65 °C — the bolts los",
+          "1.1. Drive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 48 Nm in a diagonal sequence. Use fastener set LU-2887-H only; a fastener of a lower grade will not hold this figure. Re-check the torque after the first 400 operating hours.\nApplies to AX7-160, all serial numbers.",
+          "1.3. Hydraulic reservoir capacity — AX7-160\nThe hydraulic reservoir of the AX7-160 holds 55 L to the upper sight-glass mark. Fill through filler cap YX-8484-IJ; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather.\nApplies to AX7-160, all serial numbers.",
+          "1.9. Gearbox oil grade — AX7-160\nThe gearbox of the AX7-160 takes ISO VG 32 oil. Drain plug magnet GS-1262-JY9 is inspected at the same interval. Mixing grades raises the pour point and the unit will not start below minus 25 °C.\nApplies to AX7-160, all serial numbers."
+        ]
+      }
+    },
+    {
+      "key": "B_unsupported_refused",
+      "claim": "a question about a product family the corpus does not contain is refused, with no evidence attached",
+      "parameters": {
+        "q": "What is the Drive coupling bolt torque for the ZM-800 booster pump?",
+        "lang": "en",
+        "as_of": "2025-09-11"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 683.7,
+        "outcome": "abstain",
+        "reason": "the retrieved passages cover 0.57 of the question's terms, below the 0.60 floor; the evidence is about something adjacent",
+        "signals": {
+          "top_fused_score": 1.125,
+          "supporting_chunks": 5,
+          "term_coverage": 0.5714285714285714,
+          "variant_agreement": false,
+          "superseded_present": false,
+          "conflicting_evidence": true,
+          "exact_identifier_hit": false
+        },
+        "text": null,
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [],
+        "approved_evidence": []
+      }
+    },
+    {
+      "key": "C_valid_time_earlier_revision",
+      "claim": "asked at a 2021 validity date, the revision in force in 2021 answers",
+      "parameters": {
+        "q": "To what torque are the baseplate mounting foot bolts of the AX7-160 tightened?",
+        "lang": "en",
+        "variant": "AX7-160",
+        "as_of": "2021-06-17"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 519.9,
+        "outcome": "answer",
+        "reason": "5 passages in force on 2021-06-17 agree on one variant and cover 1.00 of the question's terms",
+        "signals": {
+          "top_fused_score": 1.1590909090909092,
+          "supporting_chunks": 5,
+          "term_coverage": 1.0,
+          "variant_agreement": true,
+          "superseded_present": false,
+          "conflicting_evidence": false,
+          "exact_identifier_hit": false
+        },
+        "text": "Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 44 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected.\n\nMounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 60 Nm, working outward from the dowel in a star pattern over three passes.\n\nDrive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 40 Nm in a diagonal sequence.\n\nGearbox oil grade — AX7-160\n\nHydraulic reservoir capacity — AX7-160",
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "1.12",
+            "quote": "Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 44 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "1.11",
+            "quote": "Mounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 60 Nm, working outward from the dowel in a star pattern over three passes."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "1.1",
+            "quote": "Drive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 40 Nm in a diagonal sequence."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "1.9",
+            "quote": "Gearbox oil grade — AX7-160"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "1.3",
+            "quote": "Hydraulic reservoir capacity — AX7-160"
+          }
+        ],
+        "approved_evidence": [
+          "1.12. Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 44 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected. Every foot must bed fully on shim pack DF-3277-S before torque is applied; pulling a soft foot down with the bolt distorts the housing and drags the shaft out of alignment. Re-check each foot",
+          "1.11. Mounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 60 Nm, working outward from the dowel in a star pattern over three passes. Fit gasket GY-5680-F dry; a lubricated or re-used gasket bleeds off preload and the joint relaxes below the specified figure within a shift. Do not torque the flange while the casing is above 65 °C — the bolts los",
+          "1.1. Drive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 40 Nm in a diagonal sequence. Use fastener set LU-2887-H only; a fastener of a lower grade will not hold this figure. Re-check the torque after the first 400 operating hours.\nApplies to AX7-160, all serial numbers.",
+          "1.9. Gearbox oil grade — AX7-160\nThe gearbox of the AX7-160 takes ISO VG 46 oil. Drain plug magnet GS-1262-JY9 is inspected at the same interval. Mixing grades raises the pour point and the unit will not start below minus 25 °C.\nApplies to AX7-160, all serial numbers.",
+          "1.3. Hydraulic reservoir capacity — AX7-160\nThe hydraulic reservoir of the AX7-160 holds 50 L to the upper sight-glass mark. Fill through filler cap YX-8484-IJ; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather.\nApplies to AX7-160, all serial numbers."
+        ]
+      }
+    },
+    {
+      "key": "D_knowledge_time_as_believed_then",
+      "claim": "pinned to what was known in 2021, the belief held then answers",
+      "parameters": {
+        "q": "What is the maximum permissible case drain pressure for the AX7-165?",
+        "lang": "en",
+        "variant": "AX7-165",
+        "as_of": "2021-06-17",
+        "known_as_of": "2021-06-17"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 507.9,
+        "outcome": "answer",
+        "reason": "5 passages in force on 2021-06-17 agree on one variant and cover 0.83 of the question's terms",
+        "signals": {
+          "top_fused_score": 1.1400000000000001,
+          "supporting_chunks": 5,
+          "term_coverage": 0.8333333333333334,
+          "variant_agreement": true,
+          "superseded_present": false,
+          "conflicting_evidence": false,
+          "exact_identifier_hit": false
+        },
+        "text": "Case drain pressure limit — AX7-165\n\nA clogged element raises case pressure and will fail the pump within 250 hours.\nApplies to AX7-165, all serial numbers.\n\nPilot circuit pressure setting — AX7-165\n\nThe cooling circuit of the AX7-165 holds 120 L between the minimum and maximum marks of the expansion tank.\n\nThe gearbox of the AX7-165 takes ISO VG 138 oil. Drain plug magnet XY-4233-O is inspected at the same interval.",
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [
+          {
+            "document_id": "doc-ax7-accumulator-station-man-b-en",
+            "revision": "B",
+            "section": "3.23",
+            "quote": "Case drain pressure limit — AX7-165"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-b-en",
+            "revision": "B",
+            "section": "3.2",
+            "quote": "A clogged element raises case pressure and will fail the pump within 250 hours.\nApplies to AX7-165, all serial numbers."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-b-en",
+            "revision": "B",
+            "section": "3.22",
+            "quote": "Pilot circuit pressure setting — AX7-165"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-b-en",
+            "revision": "B",
+            "section": "3.24",
+            "quote": "The cooling circuit of the AX7-165 holds 120 L between the minimum and maximum marks of the expansion tank."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-b-en",
+            "revision": "B",
+            "section": "3.9",
+            "quote": "The gearbox of the AX7-165 takes ISO VG 138 oil. Drain plug magnet XY-4233-O is inspected at the same interval."
+          }
+        ],
+        "approved_evidence": [
+          "3.23. Case drain pressure limit — AX7-165\nCase drain pressure on the AX7-165 must not exceed 9 bar, measured at the drain port with the oil at working temperature. Fit gauge adapter NC-2641-0EK in the drain line; a reading taken downstream of the cooler is low by the cooler's own loss at 100 l/min. Pressure above this figure lifts the shaft seal and the pump loses charge within one shift.\nApplies ",
+          "3.2. Return-line filter element — AX7-165\nThe return-line filter element for the AX7-165 is QX-6058-86. Replace it together with sealing ring MX-3033-06 at every service interval; the ring is not reusable. A clogged element raises case pressure and will fail the pump within 250 hours.\nApplies to AX7-165, all serial numbers.",
+          "3.22. Pilot circuit pressure setting — AX7-165\nSet the pilot circuit of the AX7-165 to 310 bar with the main circuit unloaded and the oil at working temperature. Take the reading at gauge port CR-5434-CGA rather than at the pump outlet; the outlet reading includes line loss at 25 l/min. A pilot pressure set below this figure will not shift the main spool under load.\nApplies to AX7-165, all serial ",
+          "3.24. Cooling circuit fill volume — AX7-165\nThe cooling circuit of the AX7-165 holds 120 L between the minimum and maximum marks of the expansion tank. Fill through cap ZE-5808-ZNQ with the circuit cold; filling hot traps air in the top of the cooler core. Do not exceed the upper mark — expansion at 82 °C discharges coolant through the relief cap.\nApplies to AX7-165, all serial numbers.",
+          "3.9. Gearbox oil grade — AX7-165\nThe gearbox of the AX7-165 takes ISO VG 138 oil. Drain plug magnet XY-4233-O is inspected at the same interval. Mixing grades raises the pour point and the unit will not start below minus 15 °C.\nApplies to AX7-165, all serial numbers."
+        ]
+      }
+    },
+    {
+      "key": "E_current_knowledge_prefers_the_correction",
+      "claim": "the same validity date under current knowledge answers from the correction",
+      "parameters": {
+        "q": "What is the maximum permissible case drain pressure for the AX7-165?",
+        "lang": "en",
+        "variant": "AX7-165",
+        "as_of": "2021-06-17"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 367.0,
+        "outcome": "answer",
+        "reason": "5 passages in force on 2021-06-17 agree on one variant and cover 0.83 of the question's terms",
+        "signals": {
+          "top_fused_score": 1.1400000000000001,
+          "supporting_chunks": 5,
+          "term_coverage": 0.8333333333333334,
+          "variant_agreement": true,
+          "superseded_present": false,
+          "conflicting_evidence": false,
+          "exact_identifier_hit": false
+        },
+        "text": "Case drain pressure limit — AX7-165\n\nA clogged element raises case pressure and will fail the pump within 250 hours.\nApplies to AX7-165, all serial numbers.\n\nPilot circuit pressure setting — AX7-165\n\nThe cooling circuit of the AX7-165 holds 120 L between the minimum and maximum marks of the expansion tank.\n\nThe gearbox of the AX7-165 takes ISO VG 138 oil. Drain plug magnet XY-4233-O is inspected at the same interval.",
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "3.23",
+            "quote": "Case drain pressure limit — AX7-165"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "3.2",
+            "quote": "A clogged element raises case pressure and will fail the pump within 250 hours.\nApplies to AX7-165, all serial numbers."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "3.22",
+            "quote": "Pilot circuit pressure setting — AX7-165"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "3.24",
+            "quote": "The cooling circuit of the AX7-165 holds 120 L between the minimum and maximum marks of the expansion tank."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-manc-b-en",
+            "revision": "B",
+            "section": "3.9",
+            "quote": "The gearbox of the AX7-165 takes ISO VG 138 oil. Drain plug magnet XY-4233-O is inspected at the same interval."
+          }
+        ],
+        "approved_evidence": [
+          "3.23. Case drain pressure limit — AX7-165\nCase drain pressure on the AX7-165 must not exceed 8 bar, measured at the drain port with the oil at working temperature. Fit gauge adapter NC-2641-0EK in the drain line; a reading taken downstream of the cooler is low by the cooler's own loss at 100 l/min. Pressure above this figure lifts the shaft seal and the pump loses charge within one shift.\nApplies ",
+          "3.2. Return-line filter element — AX7-165\nThe return-line filter element for the AX7-165 is QX-6058-86. Replace it together with sealing ring MX-3033-06 at every service interval; the ring is not reusable. A clogged element raises case pressure and will fail the pump within 250 hours.\nApplies to AX7-165, all serial numbers.",
+          "3.22. Pilot circuit pressure setting — AX7-165\nSet the pilot circuit of the AX7-165 to 310 bar with the main circuit unloaded and the oil at working temperature. Take the reading at gauge port CR-5434-CGA rather than at the pump outlet; the outlet reading includes line loss at 25 l/min. A pilot pressure set below this figure will not shift the main spool under load.\nApplies to AX7-165, all serial ",
+          "3.24. Cooling circuit fill volume — AX7-165\nThe cooling circuit of the AX7-165 holds 120 L between the minimum and maximum marks of the expansion tank. Fill through cap ZE-5808-ZNQ with the circuit cold; filling hot traps air in the top of the cooler core. Do not exceed the upper mark — expansion at 82 °C discharges coolant through the relief cap.\nApplies to AX7-165, all serial numbers.",
+          "3.9. Gearbox oil grade — AX7-165\nThe gearbox of the AX7-165 takes ISO VG 138 oil. Drain plug magnet XY-4233-O is inspected at the same interval. Mixing grades raises the pour point and the unit will not start below minus 15 °C.\nApplies to AX7-165, all serial numbers."
+        ]
+      }
+    },
+    {
+      "key": "F_wrong_variant_and_withdrawn_revision_excluded",
+      "claim": "a question naming AX7-160 is never answered from AX7-160P, AX7-165 or a withdrawn revision",
+      "parameters": {
+        "q": "To what torque are the baseplate mounting foot bolts of the AX7-160 tightened?",
+        "lang": "en",
+        "variant": "AX7-160",
+        "as_of": "2023-01-01"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 342.2,
+        "outcome": "answer",
+        "reason": "5 passages in force on 2023-01-01 agree on one variant and cover 1.00 of the question's terms",
+        "signals": {
+          "top_fused_score": 1.1590909090909092,
+          "supporting_chunks": 5,
+          "term_coverage": 1.0,
+          "variant_agreement": true,
+          "superseded_present": false,
+          "conflicting_evidence": false,
+          "exact_identifier_hit": false
+        },
+        "text": "Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 52 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected.\n\nMounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 40 Nm, working outward from the dowel in a star pattern over three passes.\n\nDrive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 48 Nm in a diagonal sequence.\n\nHydraulic reservoir capacity — AX7-160\n\nGearbox oil grade — AX7-160",
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.12",
+            "quote": "Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 52 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.11",
+            "quote": "Mounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 40 Nm, working outward from the dowel in a star pattern over three passes."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.1",
+            "quote": "Drive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 48 Nm in a diagonal sequence."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.3",
+            "quote": "Hydraulic reservoir capacity — AX7-160"
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-d-en",
+            "revision": "D",
+            "section": "1.9",
+            "quote": "Gearbox oil grade — AX7-160"
+          }
+        ],
+        "approved_evidence": [
+          "1.12. Baseplate mounting foot bolt torque — AX7-160\nTighten the baseplate mounting foot bolts of the AX7-160 to 52 Nm, in diagonally opposite pairs, with the machine cold and the coupling halves disconnected. Every foot must bed fully on shim pack DF-3277-S before torque is applied; pulling a soft foot down with the bolt distorts the housing and drags the shaft out of alignment. Re-check each foot",
+          "1.11. Mounting flange bolt torque — AX7-160\nTighten the pump-to-gearbox mounting flange bolts on the AX7-160 to 40 Nm, working outward from the dowel in a star pattern over three passes. Fit gasket GY-5680-F dry; a lubricated or re-used gasket bleeds off preload and the joint relaxes below the specified figure within a shift. Do not torque the flange while the casing is above 65 °C — the bolts los",
+          "1.1. Drive coupling bolt torque — AX7-160\nTighten the drive coupling bolts on the AX7-160 to 48 Nm in a diagonal sequence. Use fastener set LU-2887-H only; a fastener of a lower grade will not hold this figure. Re-check the torque after the first 400 operating hours.\nApplies to AX7-160, all serial numbers.",
+          "1.3. Hydraulic reservoir capacity — AX7-160\nThe hydraulic reservoir of the AX7-160 holds 55 L to the upper sight-glass mark. Fill through filler cap YX-8484-IJ; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather.\nApplies to AX7-160, all serial numbers.",
+          "1.9. Gearbox oil grade — AX7-160\nThe gearbox of the AX7-160 takes ISO VG 32 oil. Drain plug magnet GS-1262-JY9 is inspected at the same interval. Mixing grades raises the pour point and the unit will not start below minus 25 °C.\nApplies to AX7-160, all serial numbers."
+        ]
+      }
+    },
+    {
+      "key": "extra_ambiguous_variant_escalates_to_review",
+      "claim": "the same question with no variant named is escalated to a person, not answered from whichever variant ranked first",
+      "parameters": {
+        "q": "How much oil does the hydraulic reservoir of the AX7-160 hold?",
+        "lang": "en",
+        "as_of": "2022-04-08"
+      },
+      "passed": true,
+      "failures": [],
+      "observed": {
+        "http_status": 200,
+        "elapsed_ms": 752.6,
+        "outcome": "review",
+        "reason": "the supporting passages apply to different variants; one of them is the wrong machine and the text does not say which",
+        "signals": {
+          "top_fused_score": 1.1400000000000001,
+          "supporting_chunks": 5,
+          "term_coverage": 0.8333333333333334,
+          "variant_agreement": false,
+          "superseded_present": false,
+          "conflicting_evidence": true,
+          "exact_identifier_hit": false
+        },
+        "text": null,
+        "answerer": "extractive",
+        "ai_disclosure_present": true,
+        "citations": [
+          {
+            "document_id": "doc-ax7-accumulator-station-man-c-en",
+            "revision": "C",
+            "section": "1.3",
+            "quote": "The hydraulic reservoir of the AX7-160 holds 55 L to the upper sight-glass mark. Fill through filler cap YX-8484-IJ; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-c-en",
+            "revision": "C",
+            "section": "2.3",
+            "quote": "The hydraulic reservoir of the AX7-160P holds 95 L to the upper sight-glass mark. Fill through filler cap DM-6010-1; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather."
+          },
+          {
+            "document_id": "doc-ax7-accumulator-station-man-c-en",
+            "revision": "C",
+            "section": "3.3",
+            "quote": "The hydraulic reservoir of the AX7-165 holds 115 L to the upper sight-glass mark. Fill through filler cap NJ-0991-FL; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 88 °C vents oil through the breather."
+          },
+          {
+            "document_id": "doc-bd6-disc-brake-man-d-en",
+            "revision": "D",
+            "section": "1.3",
+            "quote": "The hydraulic reservoir of the BD6-320 holds 50 L to the upper sight-glass mark. Fill through filler cap YT-4801-0; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather."
+          },
+          {
+            "document_id": "doc-bd6-disc-brake-man-d-en",
+            "revision": "D",
+            "section": "2.3",
+            "quote": "The hydraulic reservoir of the BD6-325 holds 85 L to the upper sight-glass mark. Fill through filler cap BI-9714-R; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 88 °C vents oil through the breather."
+          }
+        ],
+        "approved_evidence": [
+          "1.3. Hydraulic reservoir capacity — AX7-160\nThe hydraulic reservoir of the AX7-160 holds 55 L to the upper sight-glass mark. Fill through filler cap YX-8484-IJ; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather.\nApplies to AX7-160, all serial numbers.",
+          "2.3. Hydraulic reservoir capacity — AX7-160P\nThe hydraulic reservoir of the AX7-160P holds 95 L to the upper sight-glass mark. Fill through filler cap DM-6010-1; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather.\nApplies to AX7-160P, all serial numbers.",
+          "3.3. Hydraulic reservoir capacity — AX7-165\nThe hydraulic reservoir of the AX7-165 holds 115 L to the upper sight-glass mark. Fill through filler cap NJ-0991-FL; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 88 °C vents oil through the breather.\nApplies to AX7-165, all serial numbers.",
+          "1.3. Hydraulic reservoir capacity — BD6-320\nThe hydraulic reservoir of the BD6-320 holds 50 L to the upper sight-glass mark. Fill through filler cap YT-4801-0; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 82 °C vents oil through the breather.\nApplies to BD6-320, all serial numbers.",
+          "2.3. Hydraulic reservoir capacity — BD6-325\nThe hydraulic reservoir of the BD6-325 holds 85 L to the upper sight-glass mark. Fill through filler cap BI-9714-R; filling through the return port bypasses the screen. Do not exceed the mark — expansion at 88 °C vents oil through the breather.\nApplies to BD6-325, all serial numbers."
+        ]
+      }
+    }
+  ],
+  "known_failure_reproduced": {
+    "kill_condition": "E",
+    "question": "What is the paint batch number of the housing for the AX7-160?",
+    "unanswerable_kind": "absent_specification",
+    "kill_condition_E_requires": "abstain",
+    "parameters": {
+      "q": "What is the paint batch number of the housing for the AX7-160?",
+      "lang": "en",
+      "variant": "AX7-160",
+      "as_of": "2023-07-03"
+    },
+    "http_status": 200,
+    "observed_outcome": "answer",
+    "reason_given": "5 passages in force on 2023-07-03 agree on one variant and cover 0.60 of the question's terms",
+    "term_coverage": 0.6,
+    "elapsed_ms": 401.3,
+    "reproduces_the_published_failure": true,
+    "note": "kill condition E requires an abstention here and the live system does not abstain, reproducing the published FAIL"
+  },
+  "multilingual_smoke": [
+    {
+      "language": "en",
+      "question": "How much oil does the hydraulic reservoir of the AX7-160 hold?",
+      "variant": "AX7-160",
+      "http_status": 200,
+      "outcome": "answer",
+      "cited_documents": [
+        "doc-ax7-accumulator-station-man-c-en"
+      ],
+      "elapsed_ms": 379.0
+    },
+    {
+      "language": "tr",
+      "question": "AX7-160 hidrolik deposu ne kadar yağ alır?",
+      "variant": "AX7-160",
+      "http_status": 200,
+      "outcome": "answer",
+      "cited_documents": [
+        "doc-ax7-accumulator-station-man-c-tr"
+      ],
+      "elapsed_ms": 942.3
+    },
+    {
+      "language": "ru",
+      "question": "Сколько масла вмещает гидравлический бак AX7-160?",
+      "variant": "AX7-160",
+      "http_status": 200,
+      "outcome": "answer",
+      "cited_documents": [
+        "doc-ax7-accumulator-station-man-c-ru"
+      ],
+      "elapsed_ms": 296.4
+    }
+  ],
+  "observed_limitation": "on these passages the extractive answerer's quote selection often returns the section heading rather than the sentence carrying the measured value, so the assertions on measured values above read decision.approved_chunks rather than the quoted span. The citation still names the right document, revision and section. Quote selection is frozen along with everything else and was not adjusted for this file"
+}

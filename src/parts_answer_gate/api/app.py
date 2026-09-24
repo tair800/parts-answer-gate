@@ -25,6 +25,7 @@ from datetime import UTC, date, datetime
 from functools import cache
 from pathlib import Path
 from typing import Annotated, Any
+from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi import Query as QueryParam
@@ -176,10 +177,13 @@ def _release_gate(config: Settings) -> dict[str, Any]:
     """The release-gate verdict, read from `artifacts/release_gate.json`.
 
     On every screen and above the fold, because the honest headline for this project is that its
-    **original release gate failed** — three of twelve predeclared kill conditions do not hold and a
-    fourth passes vacuously. A console that showed only the working parts would be the same
-    selective reporting the project exists to argue against, and it would be doing it on the page a
-    visitor actually looks at.
+    **original release gate failed** — four of twelve predeclared kill conditions do not hold and a
+    fifth passes near-vacuously. The count is not written into the page: `_with_verdicts` reads it
+    out of `release_gate.json`, so a verdict that changed in the evidence and not here would be
+    visible rather than quietly contradicted by prose.
+
+    A console that showed only the working parts would be the same selective reporting the project
+    exists to argue against, and it would be doing it on the page a visitor actually looks at.
     """
     path = Path(config.artifacts_dir) / "release_gate.json"
     if not path.is_file():
@@ -591,25 +595,48 @@ def provenance(request: Request, config: Annotated[Settings, Depends(settings)])
     )
 
 
-#: Questions worth arriving at the demo already asked, chosen to show the three outcomes rather than
-#: the flattering one. The second is the point of the whole project: the same question at two dates.
-_EXAMPLES: tuple[dict[str, str], ...] = (
-    {
-        "label": "a torque figure, answered",
-        "href": "/?q=What+is+the+torque+for+the+impeller+retaining+bolt%3F&lang=en",
-    },
-    {
-        "label": "the same question, dated before a bulletin was withdrawn",
-        "href": (
-            "/?q=What+is+the+torque+for+the+impeller+retaining+bolt%3F&as_of=2026-03-01&lang=en"
-        ),
-    },
-    {
-        "label": "a specification the corpus does not contain",
-        "href": "/?q=What+is+the+maximum+ambient+humidity+rating%3F&lang=en",
-    },
-    {
-        "label": "the same question in Turkish",
-        "href": "/?q=Carki+tutma+civatasinin+sikma+torku+nedir%3F&lang=tr",
-    },
+#: Questions worth arriving at the demo already asked, chosen to show the three outcomes rather
+#: than the flattering one, and to put the bitemporal axis in front of a visitor who will not read
+#: this far in the README.
+#:
+#: **Every one of these is a question the corpus contains.** That is not a nicety: the public
+#: instance serves precomputed query vectors, so an example written by hand would show a visitor the
+#: "cannot encode that question" panel instead of the system working, and the first thing anyone
+#: clicks would be the one thing that fails. `scripts/check_ask_examples.py` runs in the evidence
+#: lane and refuses a build whose demo links are not corpus questions, because this went wrong once
+#: already, in exactly that way, the day query-vector caching was deployed.
+#:
+#: The parameters are varied freely — a date is an argument to the SQL predicate, not to the
+#: embedding — so the pair of dates below is genuinely the same question asked twice.
+_FOOT_TORQUE_EN = "To what torque are the baseplate mounting foot bolts of the AX7-160 tightened?"
+_FOOT_TORQUE_TR = "AX7-160 taban plakası ayak cıvataları hangi torkla sıkılır?"  # noqa: RUF001
+_ABSENT_FAMILY_EN = "What is the Drive coupling bolt torque for the ZM-800 booster pump?"
+
+_EXAMPLE_QUERIES: tuple[tuple[str, dict[str, str]], ...] = (
+    (
+        "a torque figure, answered",
+        {"q": _FOOT_TORQUE_EN, "variant": "AX7-160", "as_of": "2023-01-01", "lang": "en"},
+    ),
+    (
+        "the same question, asked as of 2021 — a different revision, a different figure",
+        {"q": _FOOT_TORQUE_EN, "variant": "AX7-160", "as_of": "2021-06-17", "lang": "en"},
+    ),
+    (
+        "a machine the corpus has never heard of, refused",
+        {"q": _ABSENT_FAMILY_EN, "as_of": "2025-09-11", "lang": "en"},
+    ),
+    (
+        "the same question, with no machine named — escalated, not guessed",
+        {"q": _FOOT_TORQUE_EN, "as_of": "2023-01-01", "lang": "en"},
+    ),
+    (
+        "the same question in Turkish",
+        {"q": _FOOT_TORQUE_TR, "variant": "AX7-160", "as_of": "2023-01-01", "lang": "tr"},
+    ),
+)
+
+#: What the template renders. Built once, so the query string and the question it came from cannot
+#: drift apart the way a hand-written href does.
+_EXAMPLES: tuple[dict[str, str], ...] = tuple(
+    {"label": label, "href": "/?" + urlencode(params)} for label, params in _EXAMPLE_QUERIES
 )

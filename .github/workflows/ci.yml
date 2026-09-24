@@ -181,6 +181,11 @@ jobs:
       - name: The committed evidence is current
         run: uv run python scripts/check_artifacts_current.py
 
+      # The public instance serves precomputed query vectors, so a demo link that is not a corpus
+      # question shows a visitor a refusal panel instead of the system working. That happened.
+      - name: The demo links are questions the deployment can answer
+        run: uv run python scripts/check_ask_examples.py
+
       - name: Publish the artifacts
         if: always()
         uses: actions/upload-artifact@v4

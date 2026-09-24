@@ -50,6 +50,7 @@ artifacts: ## run the evaluation and write the evidence the kill test grades
 
 artifacts-check: ## fail if the committed evidence no longer matches a fresh build
 	$(PY) scripts/check_artifacts_current.py
+	$(PY) scripts/check_ask_examples.py
 
 lint: ## ruff
 	$(PY) -m ruff check src tests scripts
