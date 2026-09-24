@@ -312,15 +312,41 @@ make evidence    the full chain, and what CI runs
 - `docker-entrypoint.sh` indexes, then `exec`s uvicorn on `$PORT` (default 8000). `set -e` is
   deliberately absent: a seeding failure must not crash-loop a console whose evidence screen works
   without a database, and `/healthz` reports the real state (200 with a database, 503 without).
-- Target deployment is **Render free tier**, not the Cloudflare Tunnel the blueprint scoped.
+- Target deployment is **Render free tier**, not the Cloudflare Tunnel the blueprint scoped, against
+  a **free Neon PostgreSQL 16 with pgvector** in the same region. Use Neon's **direct** endpoint:
+  `store/engine.py` applies session settings on connect, `hnsw.ef_search` among them, and a
+  transaction-mode pooler discards them, so a pooled deployment would search at a different beam
+  width from the one every published figure was measured at.
   Indexing at container start is an exemption earned by a single-instance plan, not a design: more
   than one replica must move migration and loading back out of the serving process, or two replicas
   race through the same embedding work.
-- CI (`.github/workflows/ci.yml`) has four lanes, none `continue-on-error`: `fast` (lint, types,
-  infrastructure-free tests), `evidence` (real pgvector + Qdrant services, corpus, determinism,
-  index, artifacts, kill criteria, full suite), `falsifiability` (planted breaches, then
-  `git diff --exit-code` scoped to `src tests scripts alembic`), and `docker` (the image builds,
-  serves degraded with no database, then migrates and serves against a real one).
+- **`PAG_QUERY_CACHE_ONLY` is a deployment constraint, never a retrieval change.** The encoder
+  measures 671MB resident and the free instance has 512, so the service serves query vectors from
+  the build-time cache. This is only sound because `Embedder.embed_query(text)` is
+  `embed_documents([text])[0]` — this model has no query or passage prefix — and
+  `tests/test_precomputed.py` asserts that over the AST. If a prefix, a normalisation or an
+  instruction template is ever added to `embed_query`, that test fails and the deployment must go
+  back to opening the encoder. A miss is refused with an explanation, never answered from a partial
+  signal.
+- **The Ask screen's example links must be corpus questions.** With query-vector caching a
+  hand-written example has no vector, so the first thing any visitor clicks shows a refusal panel
+  instead of the system working. `scripts/check_ask_examples.py` runs in the evidence lane and
+  refuses such a build. This happened once; it is not hypothetical.
+- **Live deployment claims are evidenced, not asserted.** `scripts/live_proof.py` and
+  `scripts/live_pgvector.py` write `artifacts/live_retrieval.json` and `artifacts/live_pgvector.json`
+  against the running service and its database. Neither reads, prints or writes a credential: the
+  DSN comes from the environment and the host is recorded as its provider and region.
+- CI (`.github/workflows/ci.yml`) has **five lanes, and the split between them is the point.** Four
+  are engineering lanes and must be green: `fast` (lint, types, infrastructure-free tests),
+  `evidence` (real pgvector + Qdrant services, corpus, determinism, index, artifacts, the full suite
+  except the kill test, the README check and the demo-link check), `falsifiability` (planted
+  breaches, then `git diff --exit-code` scoped to `src tests scripts alembic`), and `docker` (the
+  image builds, serves degraded with no database, then migrates and serves against a real one).
+  The fifth, **`release-gate`, reports the predeclared result and that result is FAILED.** It
+  succeeds when the measured verdicts match the pinned set — E, F, I and K failing, G vacuous — and
+  fails if they diverge **in either direction**, so neither a regression nor a quiet recovery can
+  pass unnoticed. A scientifically valid negative result must not become a broken software build,
+  and a failed kill condition must not become an accepted pass. Do not merge the two.
   The `evidence` lane must use `pgvector/pgvector`, never plain `postgres`: kill condition K is the
   claim that the extension participates, and a plain image would make the lane green and the claim
   unrunnable.
@@ -329,7 +355,11 @@ make evidence    the full chain, and what CI runs
 
 ## 7. Current integrations
 
-- **PostgreSQL 16 + pgvector** — the primary store and the vector index. Required.
+- **PostgreSQL 16 + pgvector** — the primary store and the vector index. Required. Locally the
+  `pgvector/pgvector:pg16` container; in the public deployment a free **Neon** PostgreSQL 16.15 with
+  pgvector 0.8.0 in `eu-central-1`, reached on the direct endpoint. `store/engine.py ::
+  normalise_database_url` coerces the `postgres://` and `postgresql://` shapes managed providers
+  hand out to `postgresql+psycopg://` and preserves the query string, `sslmode=require` included.
 - **Qdrant, local container** — the second backend behind the same storage port, for
   `storage_comparison.json` only. Nothing that serves a request reads it. **Qdrant Cloud has never
   been reached**, and the artifact says so in its own body; the cost column is published-list-price

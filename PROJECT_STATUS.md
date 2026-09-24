@@ -6,8 +6,17 @@
 
 ## Current milestone
 
-Second benchmark iteration complete. The corpus has been regenerated, a fresh hold-out frozen and
-scored, three independent adversarial reviews run and their confirmed findings fixed or published.
+**Closed as a pre-registered negative result, and deployed live.**
+
+The second benchmark iteration is complete and the result is frozen: E, F, I and K fail, G passes
+near-vacuously, H passes at 10.3x. Nothing was tuned against the hold-out after it was scored, no
+threshold was lowered, no kill test was edited and no failing condition was marked `xfail`. ADR-004
+records the close.
+
+The software is live at <https://parts-answer-gate.onrender.com> — real hybrid retrieval over a real
+pgvector index on free infrastructure. Working software and a failed hypothesis are not in tension:
+the system does what it was built to do, and the criteria written to prove it turned out to be
+measuring something else.
 
 ## Where the evidence lives
 
@@ -78,11 +87,44 @@ None requiring the owner.
 
 ## Deployment state
 
-`render.yaml` is committed: Render free tier, Frankfurt, read-only, no model key, free PostgreSQL 16.
+**Live.** <https://parts-answer-gate.onrender.com> — Render Free, Frankfurt, Docker, read-only, no
+model key, against a **free Neon PostgreSQL 16.15 with pgvector 0.8.0** in the same region, on the
+direct endpoint rather than the pooled one because a transaction-mode pooler discards the session
+settings this project applies on connect, `hnsw.ef_search` among them.
+
 The Docker build regenerates the corpus from its committed seed and precomputes its vectors, so the
 container loads an index rather than computing one — embedding this corpus takes about eleven
 minutes on nine cores and would not finish on a shared-CPU instance before any health check gave up.
 
+Two things are verified against the running deployment rather than asserted, both by committed
+scripts writing committed artifacts:
+
+- `scripts/live_proof.py` → `artifacts/live_retrieval.json`. Seven questions over HTTP: a supported
+  question answered with a citation, a machine the corpus has never heard of refused, the same
+  question at two validity dates returning two revisions and two figures, the same validity date at
+  two knowledge dates returning the belief held then and the correction that replaced it, a
+  variant-named question never answered from another variant or a withdrawn revision, and an
+  ambiguous question escalated rather than guessed. All seven hold. The same file records **kill
+  condition E failing live** and says so.
+- `scripts/live_pgvector.py` → `artifacts/live_pgvector.json`. The deployed database read out of
+  `pg_catalog` and out of the planner's own output: PostgreSQL 16.15, pgvector 0.8.0, `vector(384)`,
+  HNSW `m=16 ef_construction=200 vector_cosine_ops`, 12,420 of 12,420 chunks embedded, `<=>` in the
+  executed plan. The DSN is read from the environment; the artifact records the host as provider and
+  region only.
+
+Neither changes kill condition K, and both artifacts say so in their own bodies.
+
+### One deployment-only constraint, disclosed on the page
+
+The encoder measures 671 MB resident and the instance has 512, so the service serves query vectors
+from the same build-time cache the index was loaded from. `Embedder.embed_query(text)` is
+`embed_documents([text])[0]` — no query or passage prefix — so a cached vector is the vector the
+encoder would have produced and retrieval is unchanged. Free text outside the corpus has no vector
+and is refused with an explanation rather than searched for with a vector the instance lacks.
+`scripts/check_ask_examples.py` runs in the evidence lane and refuses a build whose demo links are
+not corpus questions, because that broke once, in exactly that way.
+
 ## Next
 
-Deploy, capture screenshots from the running console, and update `portfolio-control`.
+Nothing. The project is closed. Any further work on the gate's Turkish and Russian coverage is a new
+experiment with a new hold-out, under a new recorded decision — not a change to this one.
