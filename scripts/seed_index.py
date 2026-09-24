@@ -31,6 +31,10 @@ from sqlalchemy import func, select  # noqa: E402
 
 from parts_answer_gate.domain import Chunk, Document  # noqa: E402
 from parts_answer_gate.retrieval.embeddings import Embedder  # noqa: E402
+from parts_answer_gate.retrieval.precomputed import (  # noqa: E402
+    CachedEmbedder,
+    load_cache,
+)
 from parts_answer_gate.store.engine import (  # noqa: E402
     build_engine,
     database_url,
@@ -106,9 +110,20 @@ def main(argv: list[str] | None = None) -> int:
     documents, chunks = _read(args.corpus)
     _log(f"{len(documents)} documents, {len(chunks)} chunks to load")
 
+    # Precomputed vectors when the build left any, the encoder when it did not.
+    #
+    # `CachedEmbedder` opens the ONNX session lazily, so a fully-cached load never pays for the
+    # model at all. That is what makes a free-tier container start: embedding this corpus takes
+    # about eleven minutes on nine cores, and a shared-CPU instance has a fraction of one.
     started = time.perf_counter()
-    embedder = Embedder()
-    _log(f"encoder ready in {time.perf_counter() - started:.1f}s")
+    cache = load_cache(args.corpus)
+    embedder: Embedder | CachedEmbedder
+    if cache:
+        embedder = CachedEmbedder(cache)
+        _log(f"{len(cache)} precomputed vectors loaded in {time.perf_counter() - started:.1f}s")
+    else:
+        embedder = Embedder()
+        _log(f"no precomputed vectors; encoder ready in {time.perf_counter() - started:.1f}s")
 
     changed_at = datetime.now(UTC)
     with session_scope(engine) as session:
@@ -126,6 +141,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     if report.chunks_unchanged and not report.chunks_re_embedded:
         _log("nothing changed, so nothing was embedded — which is the point of hashing the text")
+    if isinstance(embedder, CachedEmbedder):
+        _log(f"vector cache: {embedder.hits} hits, {embedder.misses} misses")
+        if embedder.misses:
+            _log(
+                "a miss means the corpus changed after the cache was written; those chunks were "
+                "embedded now, which is correct but slow"
+            )
     return 0
 
 

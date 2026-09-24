@@ -26,7 +26,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from parts_answer_gate.domain import Chunk, Document
-from parts_answer_gate.retrieval.embeddings import EMBEDDING_MODEL_NAME, Embedder
+from parts_answer_gate.retrieval.embeddings import (
+    EMBEDDING_MODEL_NAME,
+    DocumentEncoder,
+)
 from parts_answer_gate.store.schema import (
     ChunkRow,
     DocumentRow,
@@ -90,7 +93,7 @@ def load_documents(session: Session, documents: Sequence[Document]) -> int:
 def load_chunks(
     session: Session,
     chunks: Sequence[Chunk],
-    embedder: Embedder,
+    embedder: DocumentEncoder,
     *,
     batch_size: int = 256,
     changed_at: datetime | None = None,
@@ -212,7 +215,7 @@ def _needs_embedding(stored: _StoredState | None, digest: str) -> bool:
 
 
 def _embed_in_batches(
-    embedder: Embedder, texts: Sequence[str], batch_size: int
+    embedder: DocumentEncoder, texts: Sequence[str], batch_size: int
 ) -> list[list[float]]:
     vectors: list[list[float]] = []
     for start in range(0, len(texts), batch_size):

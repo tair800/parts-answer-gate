@@ -654,22 +654,28 @@ def _latency_block(samples: Sequence[float]) -> dict[str, Any]:
     }
 
 
-def _round_trip_floor_ms(work: Callable[[], object], *, runs: int = 11) -> float:
-    """Median cost of the cheapest call this backend accepts — the transport floor.
+def _round_trip_floor_ms(work: Callable[[], object], *, runs: int = 21) -> float:
+    """Cheapest observed cost of the cheapest call this backend accepts — the transport floor.
 
-    Published beside each backend's p50 for a reason that changes how the whole table reads. The
+    Published beside each backend's p50 because it changes how the whole table reads. The
     effectivity predicate admits a couple of dozen chunks for a question that names its variant, and
-    searching twenty-one vectors is microseconds of arithmetic. Whatever the p50 above that floor is
-    small, the number a reader sees is mostly the cost of crossing a container boundary on this
+    ranking twenty-one vectors is microseconds of arithmetic. Whatever sits above this floor is
+    small, so the number a reader sees is mostly the cost of crossing a container boundary on this
     host, and a latency table that did not say so would invite them to read it as the cost of an
     index. Neither figure is a statement about either engine's search speed at production scale.
+
+    The **minimum** rather than the median, which this took first and which was wrong. A floor is a
+    lower bound; a median over a sample taken while the host is busy is not one, and on a loaded
+    laptop it came out *above* the p50 it was supposed to sit under — a figure that reads as a
+    contradiction rather than as context. The minimum over twenty-one calls finds a quiet moment
+    and states a bound that holds.
     """
     samples = []
     for _ in range(runs):
         started = time.perf_counter()
         work()
         samples.append((time.perf_counter() - started) * 1000.0)
-    return _percentile(samples, 0.50)
+    return min(samples)
 
 
 def _mean(values: Sequence[float]) -> float:
@@ -772,8 +778,10 @@ def _backend_block(
         **_latency_block(latencies),
         "round_trip_floor_ms": round(round_trip_floor_ms, 3),
         "round_trip_floor_note": (
-            "median cost of the cheapest call this backend accepts, on this host, in this run. "
-            "Subtract it from the percentiles above to see what the search itself cost."
+            "cheapest observed cost of the cheapest call this backend accepts, on this host, in "
+            "this run. Subtract it from the percentiles above to see what the search itself cost. "
+            "A lower bound on transport, not a typical one: it is sampled after the workload, so a "
+            "busy host inflates the percentiles more than it inflates this."
         ),
         "note": note,
         "filtering": filtering,

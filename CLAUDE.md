@@ -303,7 +303,7 @@ make evidence    the full chain, and what CI runs
   The embedding model (~220MB of ONNX) is baked in at build time so a cold start does not depend on
   a model host. Runs as a non-root system user with no home and no shell.
 - `docker-compose.yml` for local infrastructure: `pgvector/pgvector:pg16` on
-  `127.0.0.1:15440` and `qdrant/qdrant:v1.12.4` on `127.0.0.1:16333`/`16334`. Both bound to
+  `127.0.0.1:15440` and `qdrant/qdrant:v1.19.0` on `127.0.0.1:16333`/`16334`. Both bound to
   loopback. Postgres is tuned (`shared_buffers`, `maintenance_work_mem`, `work_mem`) so an HNSW
   build does not spill and kill condition K does not become a question about container defaults.
   Qdrant deliberately mounts **no volume**: the comparison rebuilds its collection from the vectors

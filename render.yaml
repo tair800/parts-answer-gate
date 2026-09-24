@@ -1,0 +1,62 @@
+# A public, read-only demonstration on Render's free tier.
+#
+# Four things about this file are deliberate.
+#
+# **`PAG_READ_ONLY` is true, and there is nothing for it to protect.** This service has no route
+# that ingests, re-indexes or edits anything: the flag is a label on the header rather than a gate
+# in front of a write. It is set anyway so that the deployed configuration says out loud what the
+# code already guarantees, and so a future route cannot be added without someone noticing the flag.
+#
+# **No model API key reaches this service.** The shipped answerer is extractive — it returns spans
+# from the passages it cites and structurally cannot emit a part number that its evidence does not
+# contain — and the abstractive arm raises rather than returning a stub. There is nothing here that
+# could spend money on behalf of a visitor, which is the only safe shape for a public endpoint in
+# front of anything metered.
+#
+# **The corpus and its vectors are baked into the image, not built at start.** Encoding 12,420
+# passages takes minutes on a builder and would take hours on a shared-CPU instance — long past any
+# health check. The Docker build regenerates the corpus from its committed seed and precomputes the
+# vectors; the container loads them into PostgreSQL without opening the encoder at all. The query
+# encoder still loads on first request, which is the one cold-start cost that cannot be moved.
+#
+# **The corpus is synthetic and every page says so.** No real manufacturer's documentation is
+# published here, and the provenance screen states the seed, the generator version and the hold-out
+# freeze digest.
+#
+# Deploy with the Render Blueprint flow. Nothing here needs a payment method.
+
+services:
+  - type: web
+    name: parts-answer-gate
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PAG_READ_ONLY
+        value: "true"
+      - key: PAG_ENVIRONMENT
+        value: public-demo
+      - key: PAG_DATABASE_URL
+        fromDatabase:
+          name: parts-answer-gate-db
+          property: connectionString
+      # Deliberately absent: PAG_LLM_API_KEY. Nothing in this build has ever called a model API,
+      # and an image that shipped a key would put the same credential on every deployment of this
+      # blueprint.
+      #
+      # Deliberately absent: PAG_QDRANT_URL. The second backend exists for one evidence artifact,
+      # measured locally and committed; the deployed service never reads it, and pointing this at a
+      # public Qdrant would be paying for a comparison that has already been made.
+
+databases:
+  - name: parts-answer-gate-db
+    plan: free
+    region: frankfurt
+    # pgvector is what kill condition K is about, so the extension has to be available here and not
+    # only in the local compose image. Render's managed PostgreSQL ships it; migration 0001 issues
+    # `CREATE EXTENSION IF NOT EXISTS vector` as its first statement and will fail loudly rather
+    # than silently degrade if that ever stops being true.
+    postgresMajorVersion: "16"

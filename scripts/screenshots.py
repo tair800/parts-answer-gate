@@ -255,9 +255,9 @@ def main(argv: list[str] | None = None) -> int:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
             page = browser.new_page(
-            viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
-            device_scale_factor=2,
-        )
+                viewport={"width": VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
+                device_scale_factor=2,
+            )
             for shot in _shots(example):
                 page.goto(f"{base_url}{shot.path}", wait_until="networkidle")
                 target = args.output / f"{shot.name}.png"

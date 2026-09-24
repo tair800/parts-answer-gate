@@ -33,6 +33,19 @@ TextEmbedding(model_name='sentence-transformers/paraphrase-multilingual-MiniLM-L
               cache_dir='/app/.fastembed_cache')"
 
 
+# The corpus and its vectors, built here rather than at container start.
+#
+# The corpus is regenerated from its committed seed rather than copied in, because `data/generated`
+# is gitignored on purpose: a corpus in history is a corpus nobody regenerates, and then the seed
+# stops being the source of truth. Rebuilding it here keeps the seed authoritative and keeps 23MB of
+# JSON out of the repository.
+#
+# The embeddings are precomputed in the same layer. Encoding this corpus takes minutes on a builder
+# and would take hours on a shared-CPU free-tier instance — long past any health check — so the
+# container loads vectors rather than computing them. See `retrieval/precomputed.py`.
+RUN /app/.venv/bin/python scripts/generate_corpus.py  && /app/.venv/bin/python scripts/precompute_embeddings.py
+
+
 FROM python:3.12-slim-bookworm AS runtime
 
 # A non-root user with no home and no shell. The process reads questions from the public internet;
@@ -45,6 +58,11 @@ COPY --from=build --chown=root:root /app/.venv /app/.venv
 COPY --from=build --chown=root:root /app/src /app/src
 COPY --from=build --chown=root:root /app/scripts /app/scripts
 COPY --from=build --chown=root:root /app/.fastembed_cache /app/.fastembed_cache
+
+# The corpus and its precomputed vectors, from the build stage. The entrypoint loads these into
+# PostgreSQL without opening the encoder, which is what makes a free-tier start finish in seconds
+# rather than never.
+COPY --from=build --chown=root:root /app/data/generated /app/data/generated
 
 # The migrations. Without these the container can bring up its schema only through a test helper,
 # and the thing deployed would not be the thing that was tested.

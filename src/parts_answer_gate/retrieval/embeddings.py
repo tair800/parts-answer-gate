@@ -20,13 +20,14 @@ import math
 from collections.abc import Sequence
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 __all__ = [
     "EMBEDDING_CACHE_DIR",
     "EMBEDDING_DIM",
     "EMBEDDING_MODEL_NAME",
     "EMBEDDING_POLICY",
+    "DocumentEncoder",
     "Embedder",
     "cosine_similarity",
 ]
@@ -70,6 +71,18 @@ EMBEDDING_POLICY: Final[dict[str, Any]] = {
     ),
     "distance": "cosine",
 }
+
+
+class DocumentEncoder(Protocol):
+    """What `store.loader.load_chunks` needs, which is one method.
+
+    A protocol rather than the concrete `Embedder`, because the loader is served by two things that
+    are not related by inheritance: the encoder itself, and `retrieval.precomputed.CachedEmbedder`,
+    which answers from vectors computed at build time and opens no ONNX session at all. Making the
+    cache a subclass would give every cache hit the cost of a model it never uses.
+    """
+
+    def embed_documents(self, texts: Sequence[str]) -> list[list[float]]: ...
 
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:

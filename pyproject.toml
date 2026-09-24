@@ -14,6 +14,10 @@ dependencies = [
   "pgvector>=0.3",
   "fastembed>=0.4",
   "rank-bm25>=0.2",
+  # Already present transitively through fastembed; declared because
+  # `retrieval/precomputed.py` imports it directly, and a dependency reached through somebody
+  # else's requirements is a dependency that disappears when they drop it.
+  "numpy>=2.0",
 ]
 
 [dependency-groups]

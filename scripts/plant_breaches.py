@@ -404,9 +404,7 @@ def breach_missing_disclosure() -> BreachResult:
 def breach_incremental_index_skip(session: Session) -> BreachResult:
     """Freeze the content hash, so changed text never looks changed and is never re-embedded."""
     rows = (
-        session.execute(
-            sql_text("SELECT chunk_id, text FROM chunk ORDER BY chunk_id LIMIT 5")
-        )
+        session.execute(sql_text("SELECT chunk_id, text FROM chunk ORDER BY chunk_id LIMIT 5"))
         .mappings()
         .all()
     )
