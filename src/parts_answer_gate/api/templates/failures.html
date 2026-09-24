@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Failure cases — Parts Answer Gate{% endblock %}
+{% block content %}
+<h1>Failure cases</h1>
+<p class="lede">
+  The questions this system refuses, and the ones it gets wrong. A retrieval demo that only shows
+  its successes is showing you the half that was never in doubt — and in this domain the expensive
+  outcome is not a vague answer, it is a confident one drawn from a withdrawn bulletin or the wrong
+  machine.
+</p>
+
+{% if not artifacts %}
+<div class="panel empty">No evidence has been built in this checkout.</div>
+{% else %}
+
+{% set gate = artifacts.get("gate") %}
+{% set ev = artifacts.get("evaluation") %}
+
+{% if gate %}
+<section class="panel verdict abstain">
+  <div class="big abstain">{{ "%.0f"|format(gate.abstention_rate_on_unanswerable * 100) }}%</div>
+  <p style="margin:6px 0 0; max-width:74ch">
+    of the {{ gate.unanswerable_questions }} questions the corpus <em>genuinely cannot answer</em>
+    were refused. Those questions are not padding: each one was constructed so that the supporting
+    passage does not exist, and the generator knows it because it built the corpus that way.
+  </p>
+</section>
+
+{% if gate.unanswerable_kinds is defined %}
+<h2>The seven ways a question is unanswerable</h2>
+<p class="muted" style="max-width:74ch">
+  Reported per kind, because an aggregate abstention rate can be carried by the easy category. A
+  malformed part number is trivial to refuse; a product that exists with the requested attribute
+  absent is the one that catches a system out, because retrieval returns something plausible.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>kind</th><th class="num">questions</th><th class="num">refused</th>
+      <th class="num">rate</th><th>why it is hard</th>
+    </tr></thead>
+    <tbody>
+      {% for kind, row in gate.unanswerable_kinds.items()|sort %}
+      <tr>
+        <td class="mono">{{ kind.replace("_", " ") }}</td>
+        <td class="num">{{ row.total }}</td>
+        <td class="num">{{ row.refused }}</td>
+        <td class="num">
+          <span class="tag {{ 'answer' if row.rate >= 0.9 else 'review' }}">
+            {{ "%.2f"|format(row.rate) }}</span></td>
+        <td class="muted" style="font-size:13px">{{ row.note if row.note is defined else "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+
+{% if ev and ev.holdout.answering.wrong_examples %}
+<h2>Answers that were wrong, in full</h2>
+<p class="muted" style="max-width:74ch">
+  Not a count. A wrong answer here is revision-incorrect or variant-incorrect, which means somebody
+  would have shipped the wrong part or voided a warranty — so each one is shown with what it cited
+  and what it should have cited.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>question</th><th>asked about</th><th>cited</th><th>why it is wrong</th>
+    </tr></thead>
+    <tbody>
+      {% for wrong in ev.holdout.answering.wrong_examples %}
+      <tr>
+        <td class="mono">{{ wrong.question_id }}</td>
+        <td class="mono">{{ wrong.asked_variant if wrong.asked_variant is defined else "—" }}
+          {% if wrong.as_of is defined %}<span class="muted">as of {{ wrong.as_of }}</span>{% endif %}
+        </td>
+        <td class="mono">{{ wrong.cited if wrong.cited is defined else "—" }}</td>
+        <td>{{ wrong.reason if wrong.reason is defined else "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif ev %}
+<h2>Answers that were wrong</h2>
+<div class="panel empty">
+  None on the hold-out at the shipped threshold. The curve on the
+  <a href="/evidence">evidence page</a> shows what happens as the threshold is relaxed — which is
+  the honest way to read a zero.
+</div>
+{% endif %}
+
+{% if reviews %}
+<h2>Questions a person must settle</h2>
+<p class="muted" style="max-width:74ch">
+  <code>REVIEW</code> is not a softer abstention. It is the system saying the evidence
+  <em>conflicts</em> — two variants, or a supersession the corpus records ambiguously — and putting
+  both passages in front of somebody. A technician told &ldquo;I am not sure&rdquo; walks away; a
+  technician shown two disagreeing bulletins has something to act on.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr><th>question</th><th>reason</th><th class="num">passages</th></tr></thead>
+    <tbody>
+      {% for review in reviews %}
+      <tr>
+        <td>{{ review.text }}</td>
+        <td class="muted">{{ review.reason }}</td>
+        <td class="num">{{ review.chunks }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% set eff = artifacts.get("effectivity") %}
+{% if eff and eff.adversarial is defined %}
+<h2>The adversarial case the filter exists for</h2>
+<p class="muted" style="max-width:74ch">
+  A withdrawn passage that would rank <strong>first</strong> without the effectivity filter — high
+  lexical overlap, high vector similarity, exactly the words the question used — and is never
+  scored at all because the candidate set excluded it in SQL.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>case</th><th class="num">rank without the filter</th>
+      <th class="num">rank with it</th><th>what it was</th>
+    </tr></thead>
+    <tbody>
+      {% for case in eff.adversarial %}
+      <tr>
+        <td>{{ case.name.replace("_", " ") }}</td>
+        <td class="num">{{ case.rank_unfiltered }}</td>
+        <td class="num">
+          <span class="tag answer">{{ case.rank_filtered if case.rank_filtered else "excluded" }}</span>
+        </td>
+        <td class="muted">{{ case.note }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

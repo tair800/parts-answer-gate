@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Ask — Parts Answer Gate{% endblock %}
+{% block content %}
+<h1>Ask</h1>
+<p class="lede">
+  A technician&rsquo;s parts or procedure question, answered with a variant-correct,
+  revision-correct citation — or refused. The two fields that change the answer are the
+  <strong>machine</strong> and the <strong>date</strong>: a procedure correct for an XP-400 is wrong
+  for an XP-400S, and the approved procedure on the date of an incident is not always the one
+  approved today.
+</p>
+
+<section class="panel">
+  <form class="ask" method="get" action="/">
+    <input type="text" name="q" placeholder="e.g. What is the torque for the impeller retaining bolt?"
+           value="{{ asked.text if asked else '' }}" required>
+    <div class="row">
+      <label class="muted" style="align-self:center">machine
+        <select name="variant">
+          <option value="">any variant</option>
+          {% for variant in variants %}
+            <option value="{{ variant }}"
+              {% if asked and asked.variant_id == variant %}selected{% endif %}>{{ variant }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="muted" style="align-self:center">serial
+        <input type="number" name="serial" style="width:120px"
+               value="{{ asked.serial if asked and asked.serial else '' }}" placeholder="optional">
+      </label>
+      <label class="muted" style="align-self:center">as of
+        <input type="date" name="as_of" value="{{ (asked.as_of if asked else default_as_of) }}">
+      </label>
+      <label class="muted" style="align-self:center">language
+        <select name="lang">
+          {% for code in ("en", "tr", "ru") %}
+            <option value="{{ code }}"
+              {% if asked and asked.language == code %}selected{% endif %}>{{ code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Ask</button>
+    </div>
+  </form>
+  {% if examples %}
+  <p class="muted" style="margin:12px 0 0; font-size:13px">
+    Try:
+    {% for example in examples %}
+      <a href="{{ example.href }}">{{ example.label }}</a>{% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+</section>
+
+{% if answer %}
+{% set outcome = answer.decision.outcome.value %}
+<section class="panel verdict {{ outcome }}">
+  <div class="big {{ outcome }}">{{ outcome|upper }}</div>
+  <p style="margin:6px 0 0; max-width:74ch">{{ answer.decision.reason }}</p>
+
+  {% if answer.text %}
+    <blockquote class="quote" style="margin-top:14px; font-size:15px">{{ answer.text }}</blockquote>
+  {% endif %}
+
+  {# Article 50. On the response object, not only here — this renders what the object carries. #}
+  <p class="muted" style="margin:14px 0 0; font-size:12px">{{ answer.ai_disclosure }}</p>
+</section>
+
+{% if answer.citations %}
+<h2>Citations</h2>
+<p class="muted" style="max-width:72ch">
+  Each quote is located in its source document by character offset, so a citation that drifted is
+  caught by arithmetic rather than by judgement. The revision is named because a correct passage
+  from a withdrawn bulletin is still the wrong answer.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>document</th><th>revision</th><th>section</th><th class="num">page</th><th>quote</th>
+    </tr></thead>
+    <tbody>
+      {% for citation in answer.citations %}
+      <tr>
+        <td class="mono">{{ citation.document_id }}</td>
+        <td class="mono">{{ citation.revision }}</td>
+        <td class="mono">{{ citation.section }}</td>
+        <td class="num">{{ citation.page }}</td>
+        <td><blockquote class="quote">{{ citation.quote }}</blockquote>
+          <span class="muted mono" style="font-size:11px">
+            offset {{ citation.start_offset }}&ndash;{{ citation.end_offset }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h2>Why the gate decided that</h2>
+<p class="muted" style="max-width:72ch">
+  Every signal below is computed <strong>before</strong> any text is generated, and not one of them
+  is a model output. The decision to answer is deterministic; the model is only ever asked to phrase
+  something the gate already permitted.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr><th>signal</th><th class="num">value</th><th>what it rules on</th></tr></thead>
+    <tbody>
+      {% set s = answer.decision.signals %}
+      <tr><td>top fused score</td><td class="num">{{ "%.4f"|format(s.top_fused_score) }}</td>
+        <td class="muted">the cheapest evidence that nothing relevant was found</td></tr>
+      <tr><td>supporting chunks</td><td class="num">{{ s.supporting_chunks }}</td>
+        <td class="muted">one lucky passage is not corroboration</td></tr>
+      <tr><td>term coverage</td><td class="num">{{ "%.4f"|format(s.term_coverage) }}</td>
+        <td class="muted">a passage about the right product but the wrong attribute scores well and
+          supports nothing</td></tr>
+      <tr><td>variant agreement</td><td class="num">{{ "yes" if s.variant_agreement else "NO" }}</td>
+        <td class="muted">evidence from two machines is a conflict, not a consensus</td></tr>
+      <tr><td>superseded present</td>
+        <td class="num">{{ "YES" if s.superseded_present else "no" }}</td>
+        <td class="muted">the single failure this project exists to prevent</td></tr>
+      <tr><td>conflicting evidence</td>
+        <td class="num">{{ "YES" if s.conflicting_evidence else "no" }}</td>
+        <td class="muted">two passages stating different values for the same attribute</td></tr>
+      <tr><td>exact identifier hit</td>
+        <td class="num">{{ "yes" if s.exact_identifier_hit else "no" }}</td>
+        <td class="muted">a deterministic catalogue match, found without an embedding</td></tr>
+    </tbody>
+  </table>
+</div>
+
+{% if retrieved %}
+<h2>What retrieval returned ({{ retrieved|length }})</h2>
+<p class="muted" style="max-width:72ch">
+  The candidate set was constrained <strong>in SQL, before any score was computed</strong> — by
+  variant, by serial range, and by what was in force on {{ asked.as_of }}. Passages outside those
+  were never ranked, so nothing here needed to be discarded afterwards.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th class="num">#</th><th>chunk</th><th>variant</th><th>revision</th>
+      <th class="num">lexical</th><th class="num">dense</th><th class="num">fused</th><th>text</th>
+    </tr></thead>
+    <tbody>
+      {% for item in retrieved %}
+      <tr>
+        <td class="num">{{ item.rank }}</td>
+        <td class="mono">{{ item.chunk.chunk_id }}</td>
+        <td class="mono">{{ item.chunk.effectivity.variant_id }}
+          <span class="muted">{{ item.chunk.effectivity.serials }}</span></td>
+        <td class="mono">{{ item.chunk.document_id }}
+          {% if item.chunk.superseded_by %}<span class="tag superseded">superseded</span>{% endif %}
+        </td>
+        <td class="num">{{ "%.3f"|format(item.lexical_score) }}</td>
+        <td class="num">{{ "%.3f"|format(item.dense_score) }}</td>
+        <td class="num">{{ "%.4f"|format(item.fused_score) }}</td>
+        <td class="muted" style="font-size:13px">{{ item.chunk.text[:180] }}{% if item.chunk.text|length > 180 %}…{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% elif asked %}
+<div class="panel empty">Nothing was retrieved for that question.</div>
+{% endif %}
+{% endblock %}

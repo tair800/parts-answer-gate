@@ -1,0 +1,105 @@
+<!doctype html>
+{#
+  One stylesheet, inline, no build step. The reader is a technician or a reviewer looking at
+  evidence, and every screen here is a table of passages with scores attached. A bundler would add a
+  second language to a product whose hardest problem is that a bulletin was withdrawn in June.
+
+  Three colours carry meaning and are used for nothing else: green for an answer the gate permitted,
+  amber for a review a person must settle, red for a refusal. A reader should be able to tell the
+  outcome of a question from across the room.
+#}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Parts Answer Gate{% endblock %}</title>
+  <style>
+    :root {
+      --bg:#fbfbfa; --fg:#1a1a18; --muted:#6b6b63; --line:#e2e0da; --panel:#fff;
+      --accent:#2b5f4a; --answer:#1f6b3f; --review:#8a5a00; --abstain:#a11b1b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg:#16171a; --fg:#e9e8e4; --muted:#9b9a93; --line:#2c2e33; --panel:#1d1f23;
+        --accent:#7fcfab; --answer:#7fcfab; --review:#e0a33a; --abstain:#f08a80;
+      }
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg);
+      font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header.top { border-bottom:1px solid var(--line); background:var(--panel);
+      padding:14px 16px; display:flex; flex-wrap:wrap; gap:16px; align-items:baseline; }
+    header.top a.brand { font-weight:650; color:var(--fg); text-decoration:none; }
+    nav a { color:var(--muted); text-decoration:none; margin-right:14px; }
+    nav a:hover, nav a:focus { color:var(--accent); text-decoration:underline; }
+    .chip { font-size:12px; padding:2px 8px; border:1px solid var(--line);
+      border-radius:999px; color:var(--muted); white-space:nowrap; }
+    .chip.ro { border-color:var(--review); color:var(--review); }
+    main { max-width:1180px; margin:0 auto; padding:24px 16px 64px; }
+    h1 { font-size:22px; margin:0 0 4px; }
+    h2 { font-size:16px; margin:32px 0 10px; }
+    p.lede { color:var(--muted); margin:0 0 24px; max-width:72ch; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
+      padding:16px; margin-bottom:20px; }
+    .verdict { border-left:4px solid var(--line); }
+    .verdict.answer  { border-left-color:var(--answer); }
+    .verdict.review  { border-left-color:var(--review); }
+    .verdict.abstain { border-left-color:var(--abstain); }
+    .big { font-size:28px; font-weight:650; font-variant-numeric:tabular-nums; }
+    .big.answer{color:var(--answer)} .big.review{color:var(--review)} .big.abstain{color:var(--abstain)}
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); }
+    table { border-collapse:collapse; width:100%; font-size:14px; }
+    th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line);
+      vertical-align:top; }
+    th { color:var(--muted); font-weight:550; font-size:12px; text-transform:uppercase;
+      letter-spacing:.04em; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums;
+      font-family:ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code,.mono { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; }
+    .muted { color:var(--muted); }
+    .tag { font-size:12px; padding:1px 7px; border-radius:4px; border:1px solid var(--line); }
+    .tag.answer{color:var(--answer);border-color:var(--answer)}
+    .tag.review{color:var(--review);border-color:var(--review)}
+    .tag.abstain{color:var(--abstain);border-color:var(--abstain)}
+    .tag.superseded{color:var(--abstain);border-color:var(--abstain)}
+    blockquote.quote { margin:6px 0; padding:8px 12px; border-left:3px solid var(--accent);
+      background:color-mix(in srgb, var(--accent) 6%, transparent); font-size:14px; }
+    .empty { color:var(--muted); padding:28px 4px; text-align:center; }
+    .wrap { overflow-x:auto; }
+    a { color:var(--accent); }
+    form.ask { display:grid; gap:10px; grid-template-columns:1fr; }
+    form.ask .row { display:flex; gap:10px; flex-wrap:wrap; }
+    input,select,button { font:inherit; padding:8px 10px; border:1px solid var(--line);
+      border-radius:7px; background:var(--bg); color:var(--fg); }
+    input[type=text] { flex:1; min-width:260px; }
+    button { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer; }
+    footer { color:var(--muted); font-size:13px; border-top:1px solid var(--line);
+      margin-top:40px; padding:16px; text-align:center; }
+    @media (max-width:640px){ main{padding:16px} header.top{padding:12px 16px} }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">Parts Answer Gate</a>
+    <nav>
+      <a href="/">Ask</a>
+      <a href="/evidence">Evidence</a>
+      <a href="/failures">Failure cases</a>
+      <a href="/provenance">Provenance</a>
+      <a href="/docs">API</a>
+    </nav>
+    <span style="flex:1"></span>
+    <span class="chip">{{ environment }}</span>
+    {% if read_only %}
+      <span class="chip ro" title="PAG_READ_ONLY is set. This instance answers questions and
+cannot rebuild an index.">read-only</span>
+    {% endif %}
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer>
+    Every document here is <strong>synthetic</strong>, generated from a committed seed. It is not a
+    real manufacturer&rsquo;s service manual and is not described as one anywhere.
+    Answers are machine-generated and labelled as such on the response itself.
+  </footer>
+</body>
+</html>

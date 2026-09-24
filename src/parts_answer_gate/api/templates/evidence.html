@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Evidence — Parts Answer Gate{% endblock %}
+{% block content %}
+<h1>Evidence</h1>
+<p class="lede">
+  Every number here comes from a file in <code>artifacts/</code>, and the page says which. They are
+  graded by <code>tests/test_kill_criteria.py</code>, which was committed <strong>before a single
+  source file existed</strong> and has not been edited since — so the thresholds were fixed by a
+  process that could not see the result.
+</p>
+
+{% if not artifacts %}
+<div class="panel empty">
+  No evidence has been built in this checkout. Run <code>make corpus</code>, <code>make index</code>
+  then <code>make artifacts</code>.
+</div>
+{% else %}
+
+{% set ev = artifacts.get("evaluation") %}
+{% set gate = artifacts.get("gate") %}
+{% set ground = artifacts.get("groundedness") %}
+
+{% if ev %}
+{% set hold = ev.holdout %}
+<h2>The frozen hold-out</h2>
+<p class="muted" style="max-width:74ch">
+  Split by <strong>product family</strong>, not by question. Two questions about the same pump share
+  the same passages, so a random question split would test whether the system memorised a document
+  it was already tuned on. The membership was materialised into
+  <code>artifacts/holdout.json</code> and committed <em>before</em> the first score existed.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>measurement</th><th class="num">hold-out</th><th class="num">development</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>retrieval recall@10</strong></td>
+        <td class="num">{{ "%.4f"|format(hold.retrieval.system.recall_at_10) }}</td>
+        <td class="num muted">
+          {{ "%.4f"|format(ev.development.retrieval.system.recall_at_10) }}</td>
+      </tr>
+      <tr>
+        <td><strong>wrong-answer rate</strong>
+          <span class="muted">({{ hold.answering.definition }})</span></td>
+        <td class="num">{{ "%.4f"|format(hold.answering.wrong_answer_rate) }}</td>
+        <td class="num muted">
+          {{ "%.4f"|format(ev.development.answering.wrong_answer_rate) }}</td>
+      </tr>
+      <tr>
+        <td>ungated RAG, same retrieval, never abstains</td>
+        <td class="num">{{ "%.4f"|format(hold.answering.ungated_wrong_answer_rate) }}</td>
+        <td class="num muted">
+          {{ "%.4f"|format(ev.development.answering.ungated_wrong_answer_rate) }}</td>
+      </tr>
+      <tr>
+        <td>coverage</td>
+        <td class="num">{{ "%.4f"|format(hold.answering.coverage) }}</td>
+        <td class="num muted">{{ "%.4f"|format(ev.development.answering.coverage) }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>Retrieval, against the four predeclared baselines</h2>
+<p class="muted" style="max-width:74ch">
+  Named in ADR-001 before any of them was implemented, so the strongest cannot quietly have been
+  dropped. The third is the one that matters: it is this system with the effectivity filter removed,
+  which isolates what the temporal and variant constraints actually buy.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>method</th><th class="num">recall@10</th><th class="num">MRR</th><th class="num">nDCG@10</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>hybrid + effectivity (this system)</strong></td>
+        <td class="num">{{ "%.4f"|format(hold.retrieval.system.recall_at_10) }}</td>
+        <td class="num">{{ "%.4f"|format(hold.retrieval.system.mrr) }}</td>
+        <td class="num">{{ "%.4f"|format(hold.retrieval.system.ndcg_at_10) }}</td>
+      </tr>
+      {% for name, scores in hold.retrieval.baselines.items()|sort(attribute="1.recall_at_10",
+                                                                  reverse=true) %}
+      <tr>
+        <td class="muted">{{ name.replace("_", " ") }}</td>
+        <td class="num muted">{{ "%.4f"|format(scores.recall_at_10) }}</td>
+        <td class="num muted">{{ "%.4f"|format(scores.mrr) }}</td>
+        <td class="num muted">{{ "%.4f"|format(scores.ndcg_at_10) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Coverage against wrong answers</h2>
+<p class="muted" style="max-width:74ch">
+  The curve rather than a point, because a single number is a choice of threshold presented as a
+  result. Coverage is the share of questions answered at all; a wrong answer is one that is
+  revision-incorrect or variant-incorrect. The shipped threshold is marked.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th class="num">threshold</th><th class="num">coverage</th><th class="num">wrong-answer rate</th>
+      <th class="num">answered</th><th class="num">wrong</th><th></th>
+    </tr></thead>
+    <tbody>
+      {% for point in hold.answering.coverage_curve %}
+      <tr>
+        <td class="num">{{ "%.3f"|format(point.threshold) }}</td>
+        <td class="num">{{ "%.4f"|format(point.coverage) }}</td>
+        <td class="num">{{ "%.4f"|format(point.wrong_answer_rate) }}</td>
+        <td class="num muted">{{ point.answered }}</td>
+        <td class="num muted">{{ point.wrong }}</td>
+        <td>{% if hold.answering.shipped_threshold is defined
+               and point.threshold == hold.answering.shipped_threshold %}
+              <span class="tag answer">shipped</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if hold.answering.attribution is defined %}
+<h2>Where the failures come from</h2>
+<p class="muted" style="max-width:74ch">
+  A wrong answer whose supporting passage was never retrieved is a <em>retrieval</em> failure; one
+  where the passage was retrieved and the answer still wrong is a <em>generation</em> failure; one
+  the gate should have refused is a <em>gate</em> failure. Reporting a single accuracy number hides
+  which of the three to go and fix.
+</p>
+<div class="panel">
+  <div class="grid">
+    {% for stage, count in hold.answering.attribution.items() %}
+    <div><div class="muted">{{ stage }}</div><div class="big">{{ count }}</div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% set multi = artifacts.get("multilingual") %}
+{% if multi %}
+<h2>English, Turkish and Russian, reported separately</h2>
+<p class="muted" style="max-width:74ch">
+  Separately on purpose. An aggregate would hide the weaker language, and the weaker language is the
+  finding. The corpus is <strong>synthetic parallel text</strong> — the same facts written in three
+  languages by a generator — so the ground truth is construction metadata rather than a judgement.
+  <strong>No native speaker reviewed it</strong>, so this is a measurement over generated text and
+  not a human-validated multilingual benchmark.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>language</th><th class="num">retrieval recall@10</th><th class="num">answer correctness</th>
+    </tr></thead>
+    <tbody>
+      {% for code in ("en", "tr", "ru") %}
+      {% set scores = multi.by_language.get(code) %}
+      {% if scores %}
+      <tr>
+        <td><strong>{{ code|upper }}</strong></td>
+        <td class="num">{{ "%.4f"|format(scores.retrieval_recall_at_10) }}</td>
+        <td class="num">{{ "%.4f"|format(scores.answer_correctness) }}</td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="muted" style="max-width:74ch">
+  <strong>Ablated fix:</strong> {{ multi.ablated_fix.name }} —
+  {{ multi.ablated_fix.measured_effect }}
+</p>
+{% endif %}
+
+<h2>The twelve kill conditions</h2>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr><th>condition</th><th>measured</th><th>artifact</th></tr></thead>
+    <tbody>
+      {% for row in kill_rows %}
+      <tr>
+        <td><strong>{{ row.letter }}</strong> {{ row.name }}</td>
+        <td>{{ row.measured }}</td>
+        <td class="mono muted">{{ row.artifact }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% set pg = artifacts.get("pgvector") %}
+{% if pg %}
+<h2>The vector search really runs in the database</h2>
+<div class="panel">
+  <div class="grid">
+    <div><div class="muted">extension</div>
+      <div class="big">{{ "yes" if pg.extension_installed else "NO" }}</div></div>
+    <div><div class="muted">column type</div><div class="big mono">{{ pg.column_type }}</div></div>
+    <div><div class="muted">operator</div>
+      <div class="big mono">{{ pg.distance_operator }}</div></div>
+    <div><div class="muted">index used</div>
+      <div class="big">{{ "yes" if pg.explain_mentions_index else "NO" }}</div></div>
+  </div>
+  <p class="muted" style="margin:14px 0 0">
+    Read back from the database&rsquo;s own <code>EXPLAIN</code> output, not from the code that built
+    the query. A planted breach replacing the vector search with an in-memory sort is
+    {{ "caught" if pg.breach_caught else "NOT CAUGHT" }} by the test suite.
+  </p>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

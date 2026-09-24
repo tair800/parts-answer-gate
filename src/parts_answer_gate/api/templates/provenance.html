@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Provenance — Parts Answer Gate{% endblock %}
+{% block content %}
+<h1>Provenance</h1>
+<p class="lede">
+  Where every passage came from, how it was cut up, and what turned it into a vector. A retrieval
+  result is only as checkable as the record of how the index was built, and most of these details
+  are the ones that silently change a recall figure.
+</p>
+
+{% set corpus = artifacts.get("corpus") if artifacts else none %}
+{% set retrieval = artifacts.get("retrieval_config") if artifacts else none %}
+{% set lifecycle = artifacts.get("index_lifecycle") if artifacts else none %}
+{% set comparison = artifacts.get("storage_comparison") if artifacts else none %}
+
+<section class="panel" style="border-left:4px solid var(--review)">
+  <strong>Synthetic, and openly so.</strong>
+  <p class="muted" style="margin:6px 0 0; max-width:74ch">
+    No redistributable corpus of multi-revision service manuals with variant effectivity, serial
+    ranges, supersession edges and parallel English/Turkish/Russian text exists — real ones are a
+    manufacturer&rsquo;s commercial property. This project generates its own from a committed seed
+    and never describes the result as real-world data. Ground truth is <em>construction
+    metadata</em>: the generator knows which revision superseded which and which questions have no
+    supporting passage, because it built them that way.
+  </p>
+</section>
+
+{% if corpus %}
+<h2>The corpus</h2>
+<div class="panel">
+  <div class="grid">
+    <div><div class="muted">product variants</div><div class="big">{{ corpus.variants }}</div></div>
+    <div><div class="muted">documents</div><div class="big">{{ corpus.documents }}</div></div>
+    <div><div class="muted">supersession edges</div>
+      <div class="big">{{ corpus.supersession_edges }}</div></div>
+    <div><div class="muted">chunks</div><div class="big">{{ corpus.chunks }}</div></div>
+    <div><div class="muted">questions</div><div class="big">{{ corpus.questions }}</div></div>
+    <div><div class="muted">unanswerable</div>
+      <div class="big">{{ corpus.unanswerable_questions }}</div></div>
+  </div>
+  <p class="muted" style="margin:14px 0 0; max-width:74ch">
+    Generator {{ corpus.generator_version }}, seed <code>{{ corpus.seed }}</code>, languages
+    {{ corpus.languages|join(", ") }}. Rebuilt byte-identically by
+    <code>make determinism</code>, which builds it twice and diffs every file.
+  </p>
+</div>
+
+<h2>The hold-out</h2>
+<div class="panel">
+  <p class="muted" style="margin:0 0 10px; max-width:74ch">
+    <code>{{ corpus.split_rule }}</code>
+  </p>
+  <p class="muted" style="margin:0; max-width:74ch">
+    Split by <strong>{{ corpus.split_by.replace("_", " ") }}</strong>, so a family takes its
+    documents and its questions with it. {{ corpus.documents_in_both_splits }} documents appear on
+    both sides. The membership was enumerated into <code>artifacts/holdout.json</code> and committed
+    before the first score existed — its position in git history is the evidence that the split was
+    not chosen after seeing a result.
+  </p>
+</div>
+{% endif %}
+
+{% if retrieval %}
+<h2>Chunking and embedding</h2>
+<p class="muted" style="max-width:74ch">
+  Recorded because each of these silently moves a recall figure, and a retrieval result quoted
+  without them is not reproducible by anybody else.
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <tbody>
+      {% for key, value in retrieval.items()|sort %}
+      <tr>
+        <td class="muted" style="width:30%">{{ key.replace("_", " ") }}</td>
+        <td class="mono">{{ value }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if lifecycle %}
+<h2>Index lifecycle</h2>
+<p class="muted" style="max-width:74ch">
+  Re-embedding only what changed, measured rather than described. A pipeline that re-embeds
+  everything on every edit is a full rebuild with extra steps, and its cost is the thing that stops
+  a corpus being kept current.
+</p>
+<div class="panel">
+  <div class="grid">
+    <div><div class="muted">chunks total</div><div class="big">{{ lifecycle.chunks_total }}</div></div>
+    <div><div class="muted">changed</div><div class="big">{{ lifecycle.chunks_changed }}</div></div>
+    <div><div class="muted">re-embedded</div>
+      <div class="big">{{ lifecycle.chunks_re_embedded }}</div></div>
+    <div><div class="muted">staleness</div>
+      <div class="big">{{ "%.1f"|format(lifecycle.staleness_seconds) }}s</div></div>
+  </div>
+  {% if lifecycle.withdrawn_no_longer_eligible is defined %}
+  <p class="muted" style="margin:14px 0 0">
+    {{ lifecycle.withdrawn_no_longer_eligible }} superseded chunks stopped being eligible for a
+    current-date query without being deleted — they are still retrievable by an as-of query that
+    names a date when they were in force, which is the whole reason revisions are withdrawn rather
+    than removed.
+  </p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if comparison %}
+<h2>Storage backends, compared through one port</h2>
+<p class="muted" style="max-width:74ch">
+  {{ comparison.topology if comparison.topology is defined else "" }}
+</p>
+<div class="panel wrap" style="padding:0">
+  <table>
+    <thead><tr>
+      <th>backend</th><th class="num">recall@10</th><th class="num">p95 ms</th><th>notes</th>
+    </tr></thead>
+    <tbody>
+      {% for name, scores in comparison.backends.items()|sort %}
+      <tr>
+        <td class="mono">{{ name }}</td>
+        <td class="num">{{ "%.4f"|format(scores.recall_at_10) }}</td>
+        <td class="num">{{ "%.1f"|format(scores.p95_ms) }}</td>
+        <td class="muted" style="font-size:13px">{{ scores.note if scores.note is defined else "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="muted" style="max-width:74ch">
+  <strong>Cost basis:</strong> {{ comparison.cost_basis }}. No managed-cloud account was used and no
+  bill was measured; publishing an arithmetic figure as though it were an invoice would be the same
+  defect as publishing an unmeasured latency.
+</p>
+{% endif %}
+
+<h2>What is not measured here</h2>
+<div class="panel">
+  <ul class="muted" style="margin:0; max-width:74ch">
+    <li><strong>No live language model has run.</strong> The default answerer is extractive — it
+      returns spans verbatim from the cited passage, so it structurally cannot emit a part number the
+      evidence does not contain. The abstractive arm exists behind the same port and raises without a
+      key. <strong>No cost, latency or quality figure is published for it</strong>, because none was
+      ever measured.</li>
+    <li><strong>No native speaker reviewed the Turkish or Russian text.</strong> It is synthetic
+      parallel text whose ground truth is construction metadata. The multilingual figures are a
+      measurement over generated text, not a human-validated benchmark, and no judge calibration was
+      performed.</li>
+    <li><strong>No managed cloud vector service was provisioned.</strong> The comparison runs a
+      second backend in a local container.</li>
+  </ul>
+</div>
+{% endblock %}
