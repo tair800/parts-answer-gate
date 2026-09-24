@@ -495,6 +495,14 @@ make release-gate # the predeclared kill test, reported
 make console      # http://127.0.0.1:8071
 ```
 
+Against the deployment rather than a local checkout:
+
+```sh
+make live-proof        # seven questions over HTTP -> artifacts/live_retrieval.json
+make live-pgvector     # the deployed database, out of its own catalog; needs PAG_DATABASE_URL
+make live-screenshots  # docs/screenshots/, captured from the running service
+```
+
 **`make test` and `make release-gate` are different questions and the distinction is deliberate.**
 
 `make test` is the engineering suite — does the software work. It passes, and CI's engineering lanes

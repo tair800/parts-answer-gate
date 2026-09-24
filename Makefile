@@ -14,7 +14,7 @@
 
 .PHONY: help setup db db-down migrate corpus determinism index candidates artifacts \
         artifacts-check test release-gate fast lint types breaches bitemporal console evidence \
-        screenshots clean
+        screenshots live-proof live-pgvector live-screenshots clean
 
 PY := .venv/Scripts/python.exe
 ifeq ($(OS),)
@@ -76,6 +76,17 @@ console: ## serve the Answer Gate Lab
 
 screenshots: ## capture the console's screens into docs/screenshots/
 	$(PY) scripts/screenshots.py
+
+LIVE_URL ?= https://parts-answer-gate.onrender.com
+
+live-proof: ## ask the deployed service seven questions and check the answers
+	$(PY) scripts/live_proof.py --base-url $(LIVE_URL)
+
+live-pgvector: ## read the deployed database out of its own catalog (needs PAG_DATABASE_URL)
+	$(PY) scripts/live_pgvector.py
+
+live-screenshots: ## capture the screens from the deployment rather than a local run
+	$(PY) scripts/screenshots.py --base-url $(LIVE_URL)
 
 candidates: ## how many passages the eligibility filter leaves, against top_k
 	$(PY) scripts/candidate_profile.py
