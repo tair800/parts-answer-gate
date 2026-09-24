@@ -28,8 +28,18 @@
         <input type="number" name="serial" style="width:120px"
                value="{{ asked.serial if asked and asked.serial else '' }}" placeholder="optional">
       </label>
-      <label class="muted" style="align-self:center">as of
-        <input type="date" name="as_of" value="{{ (asked.as_of if asked else default_as_of) }}">
+      <label class="muted" style="align-self:center">valid at
+        <input type="date" name="as_of" value="{{ (asked.as_of if asked else default_as_of) }}"
+               title="What was true of the machine on this date.">
+      </label>
+      {# The second bitemporal axis, and it has to be reachable from the interface or nobody can
+         check it. Blank means current knowledge: what we believe now about the date above, which
+         is what a technician wants. Filling it asks what we believed then, which is what an
+         auditor wants — and where a correction has landed the two answers differ. #}
+      <label class="muted" style="align-self:center">known at
+        <input type="date" name="known_as_of"
+               value="{{ asked.known_as_of if asked and asked.known_as_of else '' }}"
+               title="What we knew on this date. Leave blank for what we know now.">
       </label>
       <label class="muted" style="align-self:center">language
         <select name="lang">

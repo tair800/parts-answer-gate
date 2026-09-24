@@ -1,0 +1,87 @@
+{
+  "measured_over": "every question, against the live index, before any score was read",
+  "top_k": 10,
+  "why": "when the eligible candidate set is no larger than top_k, ranking cannot change recall@k and every arm sharing the filter scores identically. The first benchmark had a median of 9 against top_k 10 and published four identical 1.0000s. ADR-002.",
+  "chunks_indexed": 12420,
+  "all": {
+    "questions": 1050,
+    "min": 21,
+    "p50": 21,
+    "p90": 23,
+    "p95": 24,
+    "max": 756,
+    "mean": 52.62,
+    "at_or_below_top_k": 0,
+    "fraction_at_or_below_top_k": 0.0
+  },
+  "holdout": {
+    "questions": 297,
+    "min": 21,
+    "p50": 21,
+    "p90": 22,
+    "p95": 23,
+    "max": 23,
+    "mean": 21.28,
+    "at_or_below_top_k": 0,
+    "fraction_at_or_below_top_k": 0.0
+  },
+  "development": {
+    "questions": 753,
+    "min": 21,
+    "p50": 21,
+    "p90": 23,
+    "p95": 748,
+    "max": 756,
+    "mean": 64.98,
+    "at_or_below_top_k": 0,
+    "fraction_at_or_below_top_k": 0.0
+  },
+  "by_language": {
+    "en": {
+      "questions": 350,
+      "min": 21,
+      "p50": 21,
+      "p90": 23,
+      "p95": 24,
+      "max": 756,
+      "mean": 52.62,
+      "at_or_below_top_k": 0,
+      "fraction_at_or_below_top_k": 0.0
+    },
+    "ru": {
+      "questions": 350,
+      "min": 21,
+      "p50": 21,
+      "p90": 23,
+      "p95": 24,
+      "max": 756,
+      "mean": 52.62,
+      "at_or_below_top_k": 0,
+      "fraction_at_or_below_top_k": 0.0
+    },
+    "tr": {
+      "questions": 350,
+      "min": 21,
+      "p50": 21,
+      "p90": 23,
+      "p95": 24,
+      "max": 756,
+      "mean": 52.62,
+      "at_or_below_top_k": 0,
+      "fraction_at_or_below_top_k": 0.0
+    }
+  },
+  "distribution": {
+    "21": 717,
+    "22": 219,
+    "23": 45,
+    "24": 24,
+    "744": 3,
+    "746": 3,
+    "748": 15,
+    "750": 6,
+    "752": 6,
+    "754": 6,
+    "756": 6
+  }
+}

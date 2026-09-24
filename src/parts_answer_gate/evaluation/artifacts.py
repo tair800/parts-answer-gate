@@ -31,6 +31,8 @@ from parts_answer_gate.domain import GateOutcome, Language, Query, part_numbers_
 from parts_answer_gate.evaluation import metrics
 from parts_answer_gate.evaluation.runner import ARMS, RunSet, run_arm
 from parts_answer_gate.gate import PRIMARY_THRESHOLD_SWEEP
+from parts_answer_gate.holdout import load_frozen
+from parts_answer_gate.retrieval.embeddings import Embedder
 from parts_answer_gate.retrieval.pipeline import Retriever
 from parts_answer_gate.store.diagnostics import build_pgvector_artifact
 from parts_answer_gate.store.effectivity import FILTER_STAGE
@@ -43,13 +45,24 @@ __all__ = ["BuildReport", "build_all"]
 SHIPPED_THRESHOLD: float = 0.60
 
 #: As-of dates the effectivity replay uses. Three at minimum per the kill test, chosen to straddle
-#: the corpus's revision boundaries rather than to be far apart: a replay at three dates that all
-#: fall after every withdrawal would prove nothing.
+#: the corpus's revision boundaries rather than to be far apart: a replay at dates that all fall
+#: after every withdrawal would prove nothing.
+#:
+#: The comment above said exactly that while the dates underneath it did the opposite. The four
+#: previous values — Feb, May, Aug 2026 and Jan 2027 — all sat past 186 of the corpus's 192
+#: withdrawals, so all four described one identical temporal state and the replay tested one date
+#: four times. ADR-002.
+#:
+#: These five are the 10th, 30th, 50th, 70th and 90th percentiles of the corpus's distinct
+#: withdrawal dates, so each one sees a genuinely different set of revisions in force: 6, 17, 28,
+#: 39 and 50 of the 55 distinct withdrawals already past, respectively. A date is only worth
+#: replaying at if something was in force then that is not in force now.
 REPLAY_DATES: tuple[date, ...] = (
-    date(2026, 2, 1),
-    date(2026, 5, 1),
-    date(2026, 8, 1),
-    date(2027, 1, 1),
+    date(2020, 11, 29),
+    date(2022, 3, 8),
+    date(2023, 1, 4),
+    date(2023, 11, 18),
+    date(2024, 10, 11),
 )
 
 
@@ -71,11 +84,18 @@ def _provenance() -> dict[str, Any]:
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         commit = "unknown"
+    # The hold-out digest travels with every artifact. Without it an artifact says which commit
+    # produced it and nothing about which question set it scored, so a file left behind by an
+    # earlier corpus is indistinguishable from a current one — and `check_artifacts_current.py`
+    # would have nothing cheap to compare.
+    frozen = load_frozen(Path(__file__).resolve().parents[3] / "artifacts")
     return {
         "commit": commit or "unknown",
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "corpus_is_synthetic": True,
+        "holdout_digest": frozen.digest if frozen is not None else None,
+        "holdout_questions": len(frozen.questions) if frozen is not None else 0,
     }
 
 
@@ -385,6 +405,10 @@ def _multilingual(runs: RunSet, ablated: RunSet | None) -> dict[str, Any]:
         for language, block in scores.items()
     }
 
+    # `ablated` is never None on the shipped build. It was for the whole of the first iteration,
+    # which meant `measured_effect` published the literal string "not measured" while the kill test
+    # asserted only that the key existed. A key-presence assertion over a placeholder is a test that
+    # cannot fail. ADR-002.
     effect = "not measured"
     if ablated is not None:
         before = metrics.by_language(ablated.retrieval_cases, ablated.answer_outcomes)
@@ -453,19 +477,36 @@ def _determinism(first: RunSet, second: RunSet) -> dict[str, Any]:
     }
 
 
-def _retrieval_config() -> dict[str, Any]:
+def _retrieval_config(embedder: Embedder) -> dict[str, Any]:
+    """The configuration as the running system holds it, with the normalisation **measured**.
+
+    The normalisation line used to be the literal string "unit vectors, cosine distance", and it
+    was false. `EMBEDDING_POLICY` in the same repository already recorded the truth — the quantised
+    ONNX build fastembed serves for this model does not L2-normalise, and the probe vector's norm
+    is about 5.4 rather than 1.0 — so the artifact contradicted the module it describes. Retrieval
+    is unaffected, because cosine distance normalises internally; the claim was simply wrong, and a
+    shipped artifact stating a measured property that the measurement contradicts is the kind of
+    thing that makes a reader stop believing the rest of the file. ADR-002.
+    """
     from parts_answer_gate.retrieval.embeddings import (  # noqa: PLC0415
         EMBEDDING_DIM,
         EMBEDDING_MODEL_NAME,
+        EMBEDDING_POLICY,
     )
     from parts_answer_gate.retrieval.pipeline import STAGE_WEIGHTS  # noqa: PLC0415
     from parts_answer_gate.store.engine import SESSION_SETTINGS  # noqa: PLC0415
     from parts_answer_gate.store.schema import HNSW_BUILD_PARAMETERS  # noqa: PLC0415
 
+    norm = embedder.measured_norm()
     return {
         "embedding_model": EMBEDDING_MODEL_NAME,
         "embedding_dimensions": EMBEDDING_DIM,
-        "normalisation": "unit vectors, cosine distance",
+        "normalisation": {
+            "l2_normalised": bool(abs(norm - 1.0) < 0.01),
+            "measured_probe_norm": round(norm, 4),
+            "distance": EMBEDDING_POLICY["distance"],
+            "note": EMBEDDING_POLICY["normalization"],
+        },
         "fusion": "reciprocal rank fusion",
         "stage_weights": STAGE_WEIGHTS,
         "hnsw_build_parameters": HNSW_BUILD_PARAMETERS,
@@ -564,9 +605,13 @@ def build_all(
         "groundedness.json": _groundedness(everything, corpus["document_text"]),
         "gate.json": _gate(everything, questions),
         "evaluation.json": _evaluation(holdout_arms, development_arms, questions),
-        "multilingual.json": _multilingual(system, None),
+        # The ablated arm is `bm25_only`, which is exactly what this artifact's own
+        # `what_it_ablates` describes: a per-language lexical index with no cross-lingual vector
+        # signal. The measured effect is the per-language recall difference between the shipped
+        # hybrid and that, which is the number the blueprint asks for.
+        "multilingual.json": _multilingual(system, holdout_arms["bm25_only"]),
         "determinism.json": _determinism(system, replay),
-        "retrieval_config.json": _retrieval_config(),
+        "retrieval_config.json": _retrieval_config(retriever.embedder),
         # Kill condition K, and the index-lifecycle measurement, produced by the ordinary build
         # rather than by a script somebody remembers to run.
         #

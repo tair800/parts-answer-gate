@@ -18,6 +18,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+from parts_answer_gate.store.comparison import DEFAULT_QDRANT_URL, QDRANT_URL_ENV
 from parts_answer_gate.store.engine import DATABASE_URL_ENV, DEFAULT_DATABASE_URL
 
 __all__ = ["Settings", "get_settings"]
@@ -27,6 +28,10 @@ __all__ = ["Settings", "get_settings"]
 # second copy of the string would be a second thing to keep in step with docker-compose.yml. This
 # file had its own copy with different credentials for about an hour, and nothing would have
 # connected out of the box.
+#
+# `DEFAULT_QDRANT_URL` follows the same rule for the same reason. `store/comparison.py` imports
+# `qdrant-client` — a *development* dependency — only inside the functions that use it, precisely so
+# that this import stays free and a production install without that package still starts.
 
 
 def _flag(name: str, *, default: bool) -> bool:
@@ -50,6 +55,10 @@ def _flag(name: str, *, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     database_url: str
+    #: The second storage backend, used by the comparison artifact and by nothing that serves a
+    #: request. It is a **local container** — see `store/comparison.py` and `docker-compose.yml` —
+    #: and neither this setting nor anything reading it has ever pointed at Qdrant Cloud.
+    qdrant_url: str
     read_only: bool
     llm_api_key: str | None
     corpus_dir: str
@@ -66,6 +75,7 @@ class Settings:
 def get_settings() -> Settings:
     return Settings(
         database_url=os.environ.get(DATABASE_URL_ENV, DEFAULT_DATABASE_URL),
+        qdrant_url=os.environ.get(QDRANT_URL_ENV, DEFAULT_QDRANT_URL),
         read_only=_flag("PAG_READ_ONLY", default=True),
         llm_api_key=os.environ.get("PAG_LLM_API_KEY") or None,
         corpus_dir=os.environ.get("PAG_CORPUS_DIR", "data/generated"),

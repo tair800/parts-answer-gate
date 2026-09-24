@@ -43,6 +43,7 @@ from parts_answer_gate.domain import (
     RetrievedChunk,
 )
 from parts_answer_gate.evaluation.metrics import AnswerOutcome, RetrievalCase
+from parts_answer_gate.gate import GateThresholds
 from parts_answer_gate.retrieval.pipeline import RetrievalResult, Retriever
 from parts_answer_gate.store.schema import DocumentRow
 
@@ -142,23 +143,47 @@ class RunSet:
         ).hexdigest()
 
 
-def is_hard_block(decision: GateDecision) -> bool:
-    """Whether this refusal is one no threshold could lift.
+def is_hard_block(decision: GateDecision, thresholds: GateThresholds | None = None) -> bool:
+    """Whether this refusal is one the swept threshold could not lift.
 
-    The swept threshold is term coverage. A refusal caused by nothing being retrieved, by a
-    superseded passage, by two variants disagreeing or by conflicting values is independent of it —
-    relaxing coverage would not turn any of those into an answer.
+    The swept threshold is term coverage. Every *other* abstain or review rule in `gate._RULES` is
+    independent of it, so a question those rules refused must be refused at every point on the
+    curve — relaxing coverage would not turn any of them into an answer.
 
     The distinction is what makes the published curve monotonic in coverage. Encoding a hard block
     as a very low score instead would let it drift back above the line at a low threshold, and the
     curve would show coverage rising and falling for reasons nobody could read off the data.
+
+    **This has to enumerate the shipped gate's rules exactly, and for the first iteration it did
+    not.** It covered four of the six non-coverage rules and missed two: the top-fused-score floor
+    and the support floor. A question refused by either of those kept `hard_blocked=False` and a
+    high term coverage, so the curve answered it at every threshold below that coverage — and,
+    because an abstention approves no chunks and therefore cites nothing, `revision_incorrect`
+    scored it as a wrong answer that was never given. The published curve was neither the shipped
+    gate's curve nor a curve of anything else. ADR-002.
+
+    `thresholds` defaults to the shipped configuration, which is what the evaluation runs.
     """
+    limits = thresholds or GateThresholds()
     signals = decision.signals
+
+    required_support = (
+        limits.min_supporting_chunks_with_exact_hit
+        if signals.exact_identifier_hit
+        else limits.min_supporting_chunks
+    )
     return (
         signals.supporting_chunks == 0
         or signals.superseded_present
         or not signals.variant_agreement
         or signals.conflicting_evidence
+        # The two the first version missed. Both are `gate._RULES` entries, both are ABSTAIN, and
+        # neither is reachable by moving term coverage.
+        or (
+            signals.top_fused_score <= limits.min_top_fused_score
+            and not signals.exact_identifier_hit
+        )
+        or signals.supporting_chunks < required_support
     )
 
 

@@ -231,7 +231,17 @@ def test_a_correction_is_not_reachable_by_a_historical_knowledge_query(
         "a correction that did not exist at the asked knowledge date was admitted as a candidate"
     )
 
-    # And the premise: without the filter it is the top hit, so the exclusion above is real.
+    # And the premise: without the filter it is retrieved, so the exclusion above is real.
+    #
+    # Retrieved rather than ranked first, and the reason is worth stating. A correction differs
+    # from the passage it corrects by one number, and the lexical tokeniser drops bare numerals —
+    # so the two are *identical* to BM25 and tie, with the order decided by chunk id. Asserting
+    # first place here would be asserting a tie-break, and the tie-break is not the guarantee. What
+    # matters is that the correction is sitting in the result the ranker produced and is absent
+    # from the candidate set the filter admits.
     unfiltered = Retriever().retrieve(session, query, apply_effectivity=False)
-    top = next(i.chunk.chunk_id for i in unfiltered.chunks)
-    assert top == str(correction_chunk["chunk_id"])
+    ranked = [item.chunk.chunk_id for item in unfiltered.chunks]
+    assert str(correction_chunk["chunk_id"]) in ranked, (
+        "the premise does not hold: the correction was not retrieved even without the filter, so "
+        f"its absence with the filter proves nothing. Got {ranked[:3]}"
+    )

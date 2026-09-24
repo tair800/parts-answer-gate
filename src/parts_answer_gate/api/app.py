@@ -325,9 +325,16 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
     variant: Annotated[str | None, QueryParam()] = None,
     serial: Annotated[int | None, QueryParam()] = None,
     as_of: Annotated[str | None, QueryParam()] = None,
+    known_as_of: Annotated[str | None, QueryParam()] = None,
     lang: Annotated[str, QueryParam()] = "en",
 ) -> HTMLResponse:
-    """Screen 1. The question, the evidence, the gate's reasoning, and the answer or the refusal."""
+    """Screen 1. The question, the evidence, the gate's reasoning, and the answer or the refusal.
+
+    `as_of` and `known_as_of` are separate inputs because they are separate questions. Leaving
+    `known_as_of` blank asks what we believe *now* about the date in `as_of`, which is what a
+    technician wants. Filling it asks what we believed *then*, which is what an auditor wants, and
+    the two have different right answers wherever a correction has landed.
+    """
     today = datetime.now(tz=UTC).date()
     asked: Query | None = None
     answer: Answer | None = None
@@ -338,6 +345,7 @@ def ask(  # noqa: PLR0917 - a FastAPI handler's parameters are injected, never p
             text=q,
             language=Language(lang) if lang in {"en", "tr", "ru"} else Language.EN,
             as_of=date.fromisoformat(as_of) if as_of else today,
+            known_as_of=date.fromisoformat(known_as_of) if known_as_of else None,
             variant_id=variant or None,
             serial=serial,
         )
@@ -366,6 +374,7 @@ def ask_json(  # noqa: PLR0917 - injected by FastAPI, not called positionally
     variant: Annotated[str | None, QueryParam()] = None,
     serial: Annotated[int | None, QueryParam()] = None,
     as_of: Annotated[str | None, QueryParam()] = None,
+    known_as_of: Annotated[str | None, QueryParam()] = None,
     lang: Annotated[str, QueryParam()] = "en",
 ) -> Answer:
     """The same pipeline as JSON.
@@ -377,6 +386,7 @@ def ask_json(  # noqa: PLR0917 - injected by FastAPI, not called positionally
         text=q,
         language=Language(lang) if lang in {"en", "tr", "ru"} else Language.EN,
         as_of=date.fromisoformat(as_of) if as_of else datetime.now(tz=UTC).date(),
+        known_as_of=date.fromisoformat(known_as_of) if known_as_of else None,
         variant_id=variant or None,
         serial=serial,
     )
