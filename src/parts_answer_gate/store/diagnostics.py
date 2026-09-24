@@ -20,7 +20,7 @@ because if they disagreed, the test would be detecting a bug rather than detecti
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 
 from parts_answer_gate.domain import Language, Query
 from parts_answer_gate.retrieval.dense import (
+    ANN_PLAN_SETTINGS,
     DISTANCE_OPERATOR,
     DenseHit,
     dense_search,
@@ -61,7 +62,11 @@ class BreachOutcome:
     planted: str
     guard_accepted_real_query: bool
     guard_rejected_breach: bool
-    rankings_identical: bool
+    #: How much of the real top-k the impostor reproduced. Reported rather than asserted equal:
+    #: HNSW is an approximate index and the in-memory sort is exhaustive, so the two *should*
+    #: differ slightly. A high overlap is the point — the substitution is nearly invisible in the
+    #: output, which is why the guard reads the query plan instead of the results.
+    top_k_overlap: float
     breach_plan: str
     caught: bool
 
@@ -115,6 +120,21 @@ def _floats(stored: Any) -> list[float]:
     return [float(value) for value in stored]
 
 
+def _median_ms[T](work: Callable[[], T], *, runs: int = 5) -> float:
+    """Median wall-clock cost of `work`, in milliseconds.
+
+    Median over five rather than a single sample: the first execution of a query on this container
+    pays for a cold buffer cache, and publishing that as the latency of the index would be as
+    misleading in one direction as publishing the best of five would be in the other.
+    """
+    samples = []
+    for _ in range(runs):
+        started = time.perf_counter()
+        work()
+        samples.append((time.perf_counter() - started) * 1000.0)
+    return sorted(samples)[len(samples) // 2]
+
+
 def build_pgvector_artifact(
     session: Session,
     query: Query,
@@ -144,24 +164,31 @@ def build_pgvector_artifact(
         {"table": table, "column": column},
     ).scalar_one_or_none()
 
-    started = time.perf_counter()
     real_hits = dense_search(session, filters, vector, limit=limit)
-    real_ms = (time.perf_counter() - started) * 1000.0
+    ann_ms = _median_ms(lambda: dense_search(session, filters, vector, limit=limit))
+    planner_ms = _median_ms(
+        lambda: dense_search(session, filters, vector, limit=limit, use_ann_plan=False)
+    )
     evidence = explain_dense(session, filters, vector, limit=limit)
+    planner_evidence = explain_dense(session, filters, vector, limit=limit, use_ann_plan=False)
 
     breach_hits, breach_plan = in_memory_dense_search_breach(
         session, filters, vector, limit=limit
     )
+    real_ids = [hit.chunk_id for hit in real_hits]
+    breach_ids = [hit.chunk_id for hit in breach_hits]
+    overlap = (
+        len(set(real_ids) & set(breach_ids)) / len(real_ids) if real_ids else 0.0
+    )
     guard_accepted = executed_through_pgvector(evidence.plan)
     guard_rejected = not executed_through_pgvector(breach_plan)
-    identical = [hit.chunk_id for hit in real_hits] == [hit.chunk_id for hit in breach_hits]
     breach = BreachOutcome(
         planted="dense ranking replaced by an in-process sort over the same filtered candidates",
         guard_accepted_real_query=guard_accepted,
         guard_rejected_breach=guard_rejected,
-        rankings_identical=identical,
+        top_k_overlap=round(overlap, 4),
         breach_plan=breach_plan,
-        caught=guard_accepted and guard_rejected and identical,
+        caught=guard_accepted and guard_rejected,
     )
 
     return {
@@ -179,6 +206,18 @@ def build_pgvector_artifact(
         "explain_indexes_named": list(evidence.index_names),
         "explain_plan": evidence.plan,
         "explained_sql": dense_sql(filters).strip(),
+        "plan_choice": {
+            "ann_plan_settings": list(ANN_PLAN_SETTINGS),
+            "ann_plan_median_ms": round(ann_ms, 3),
+            "planner_default_median_ms": round(planner_ms, 3),
+            "planner_default_uses_index": planner_evidence.mentions_index,
+            "planner_default_plan": planner_evidence.plan,
+            "why": (
+                "PostgreSQL prices a 384-dimension cosine distance at procost=1 and therefore "
+                "prefers computing it for every row the effectivity filter admits. Both timings "
+                "above are measured on this database, in this call, over the same query."
+            ),
+        },
         "query": {
             "text": query.text,
             "as_of": query.as_of.isoformat(),
@@ -189,7 +228,7 @@ def build_pgvector_artifact(
             "vector_prefix": vector_literal(vector[:4])[:-1] + ", ...]",
         },
         "candidates_after_effectivity_filter": candidate_count(session, filters),
-        "dense_search_ms": round(real_ms, 3),
+        "dense_search_ms": round(ann_ms, 3),
         "breach": asdict(breach),
         "breach_caught": breach.caught,
     }

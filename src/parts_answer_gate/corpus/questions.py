@@ -37,7 +37,7 @@ from typing import Final
 
 from parts_answer_gate.corpus import text as phrases
 from parts_answer_gate.corpus.builder import MANUAL, BuiltCorpus, Revision
-from parts_answer_gate.corpus.catalogue import FAMILIES, TOPICS, Family, Topic, Unit, topic_by_key
+from parts_answer_gate.corpus.catalogue import FAMILIES, TOPICS, Family, Topic, Unit
 from parts_answer_gate.corpus.identifiers import (
     is_well_formed,
     malformed_variants,
@@ -153,12 +153,9 @@ def _pick(pool_size: int, used: set[int], *purpose: str) -> int:
     return index
 
 
-def _trilingual(render: Mapping[Language, str]) -> Mapping[Language, str]:
-    return dict(render)
-
-
 def _empty_support() -> Mapping[Language, tuple[str, ...]]:
-    return {language: () for language in Language}
+    empty: tuple[str, ...] = ()
+    return dict.fromkeys(Language, empty)
 
 
 def _no_span() -> Mapping[Language, str | None]:
@@ -241,7 +238,7 @@ def _answerable_seed(
         serial=_serial_for(spec.serials.first, spec.serials.last),
         answerable=True,
         unanswerable_kind=None,
-        text=_trilingual(render),
+        text=render,
         supporting=support,
         span=span,
         rationale=(
@@ -280,7 +277,7 @@ def _absent_specification_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 serial=None,
                 answerable=False,
                 unanswerable_kind=kind,
-                text=_trilingual(render),
+                text=render,
                 supporting=_empty_support(),
                 span=_no_span(),
                 rationale=f"no document in this corpus states {spec.en!r} for any variant",
@@ -315,7 +312,7 @@ def _attribute_absent_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 serial=None,
                 answerable=False,
                 unanswerable_kind=kind,
-                text=_trilingual(render),
+                text=render,
                 supporting=_empty_support(),
                 span=_no_span(),
                 rationale=(
@@ -356,7 +353,7 @@ def _near_match_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 serial=None,
                 answerable=False,
                 unanswerable_kind=kind,
-                text=_trilingual(render),
+                text=render,
                 supporting=_empty_support(),
                 span=_no_span(),
                 rationale=(
@@ -443,7 +440,7 @@ def _superseded_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 serial=None,
                 answerable=False,
                 unanswerable_kind=kind,
-                text=_trilingual(render),
+                text=render,
                 supporting=_empty_support(),
                 span=_no_span(),
                 rationale=(
@@ -487,7 +484,7 @@ def _contradictory_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                     serial=_serial_for(spec.serials.first, spec.serials.last),
                     answerable=False,
                     unanswerable_kind=kind,
-                    text=_trilingual(render),
+                    text=render,
                     supporting=_empty_support(),
                     span=_no_span(),
                     rationale=(
@@ -530,7 +527,7 @@ def _different_family_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 serial=None,
                 answerable=False,
                 unanswerable_kind=kind,
-                text=_trilingual(render),
+                text=render,
                 supporting=_empty_support(),
                 span=_no_span(),
                 rationale=f"{decoy.en} is not a product family this corpus contains",
@@ -570,7 +567,7 @@ def _malformed_seeds(corpus: BuiltCorpus) -> list[QuestionSeed]:
                 serial=None,
                 answerable=False,
                 unanswerable_kind=kind,
-                text=_trilingual(render),
+                text=render,
                 supporting=_empty_support(),
                 span=_no_span(),
                 rationale=f"{broken} is rejected by the corpus' own part-number pattern",
@@ -623,7 +620,3 @@ def question_records(seeds: Sequence[QuestionSeed]) -> list[dict[str, object]]:
                 }
             )
     return records
-
-
-def topic_of(key: str) -> Topic:
-    return topic_by_key(key)

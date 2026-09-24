@@ -13,7 +13,7 @@ Three properties are needed and they pull in different directions.
    the XP-400" stops being true and the wrong-variant measurement silently softens.
 
 (2) and (3) are reconciled by making the space large enough that a collision is not expected —
-26² × 10⁴ × 36³ ≈ 3.1 × 10¹¹ against roughly 400 issued numbers — and then *checking* rather than
+26^2 * 10^4 * 36^3, about 3.1e11, against roughly 400 issued numbers — and then *checking* rather than
 assuming: `generate.py` asserts every issued number is unique and fails the build loudly if not. An
 unproven assumption about a hash is still an assumption.
 """

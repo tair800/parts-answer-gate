@@ -172,10 +172,12 @@ def test_one_lucky_chunk_is_not_corroboration() -> None:
 
 
 def test_evidence_about_something_adjacent_abstains() -> None:
-    """The failure the coverage signal exists for: a chunk about the right machine, wrong attribute."""
+    """The failure the coverage signal exists for: the right machine, the wrong attribute."""
     retrieved = [found(make_chunk("c1"), rank=1), found(make_chunk("c2"), rank=2)]
 
-    decision = gate.decide(ask("What is the hydraulic reservoir capacity of the XP-400?"), retrieved)
+    decision = gate.decide(
+        ask("What is the hydraulic reservoir capacity of the XP-400?"), retrieved
+    )
 
     assert decision.outcome is GateOutcome.ABSTAIN
     assert decision.approved_chunks == ()
@@ -293,7 +295,7 @@ def test_a_conflict_in_russian_is_the_same_conflict() -> None:
     )
 
     decision = gate.decide(
-        ask("Какой момент затяжки болтов муфты привода XP-400?", language=Language.RU),  # noqa: RUF001
+        ask("Какой момент затяжки болтов муфты привода XP-400?", language=Language.RU),
         [found(first, rank=1), found(second, rank=2)],
     )
 
@@ -344,7 +346,7 @@ def test_turkish_coverage_survives_inflection() -> None:
     """Exact token matching would score near zero here and abstain on the whole language."""
     text = (
         "XP-400 tahrik kaplini cıvatalarını 48 Nm değerine sıkın. "  # noqa: RUF001
-        "Yalnızca AB-1234-C bağlantı elemanı takımını kullanın."
+        "Yalnızca AB-1234-C bağlantı elemanı takımını kullanın."  # noqa: RUF001
     )
     retrieved = [
         found(make_chunk("c1", text, language=Language.TR), rank=1),
@@ -423,7 +425,7 @@ def test_the_primary_threshold_can_be_swept_without_touching_the_others() -> Non
 def test_the_declared_sweep_has_enough_points_for_a_curve() -> None:
     """ADR-001 requires a curve, and the kill test requires at least five points on it."""
     assert len(gate.PRIMARY_THRESHOLD_SWEEP) >= 5
-    assert gate.PRIMARY_THRESHOLD_SWEEP == tuple(sorted(gate.PRIMARY_THRESHOLD_SWEEP))
+    assert tuple(sorted(gate.PRIMARY_THRESHOLD_SWEEP)) == gate.PRIMARY_THRESHOLD_SWEEP
     assert gate.PRIMARY_THRESHOLD_NAME in gate.GateThresholds.model_fields
 
 

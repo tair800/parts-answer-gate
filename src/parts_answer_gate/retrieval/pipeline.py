@@ -20,7 +20,7 @@ and the evaluation's job is to attribute error to a stage.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -125,7 +125,20 @@ class Retriever:
         query: Query,
         *,
         languages: Iterable[Language] | None = None,
+        weights: Mapping[str, float] | None = None,
     ) -> RetrievalResult:
+        """Retrieve, optionally with the stage weights overridden.
+
+        `weights` exists for the predeclared baselines and for nothing else. Setting `dense` to zero
+        is what `bm25_only` *is*; setting `lexical` to zero is `dense_only`. Expressing them as a
+        weight through this one code path keeps the comparison honest — a baseline built from a
+        second retriever would measure the differences between two retrievers rather than the
+        contribution of one signal.
+
+        It is a parameter rather than a constructor argument so the same `Retriever`, holding the
+        same loaded encoder, serves every arm. Five encoders would be five copies of 220MB and a
+        chance for two arms to embed differently.
+        """
         call_started = time.perf_counter()
         timings: dict[str, float] = {}
         depth = max(query.top_k * STAGE_DEPTH_MULTIPLIER, MIN_STAGE_DEPTH)
@@ -154,7 +167,7 @@ class Retriever:
                     "lexical": lexical_order,
                     "dense": [hit.chunk_id for hit in dense_hits],
                 },
-                weights=STAGE_WEIGHTS,
+                weights=STAGE_WEIGHTS if weights is None else {**STAGE_WEIGHTS, **weights},
             ),
         )
 

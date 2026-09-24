@@ -19,6 +19,13 @@ one, but they are all passed, so adding a placeholder to one language and not th
 format time instead of producing a corpus where the Russian passage is missing a figure.
 """
 
+# The Turkish and Russian text below trips ruff's ambiguous-character rules on almost every
+# line: `ı`, `İ`, `Н`, `б`, `а`, `р` and their neighbours are exactly the characters those
+# rules warn about, and here they are the point rather than a typo. Suppressed for the file,
+# because a per-string noqa on a parallel corpus is noise that hides a real one.
+# ruff: noqa: RUF001, RUF002, RUF003
+
+
 from __future__ import annotations
 
 from typing import Final

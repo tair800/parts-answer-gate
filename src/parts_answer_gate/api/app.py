@@ -294,13 +294,14 @@ def _answer(session: Session, query: Query) -> tuple[Answer, Any]:
     # `answerer` raises if a document it was asked to cite has no label, so a passage can never be
     # described by a revision nobody supplied.
     document_ids = {item.chunk.document_id for item in decision.approved_chunks}
-    revisions = dict(
-        session.execute(
+    revisions: dict[str, str] = {
+        str(row[0]): str(row[1])
+        for row in session.execute(
             select(DocumentRow.document_id, DocumentRow.revision).where(
                 DocumentRow.document_id.in_(document_ids)
             )
         ).all()
-    )
+    }
     answer = _ANSWERER.answer(query, decision, revisions)
     return answer, result
 

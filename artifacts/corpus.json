@@ -1,0 +1,61 @@
+{
+  "is_synthetic": true,
+  "notice": "Synthetic corpus generated from a committed seed for evaluation. Not real-world data, not a manufacturer publication, and not reviewed by a native speaker of Turkish or Russian.",
+  "generator_version": "corpus-1.0.0",
+  "seed": "parts-answer-gate/ADR-001/corpus/v1",
+  "split_rule": "blake2b(family_id, digest_size=8) % 100 < 34  (big-endian)",
+  "split_by": "product_family",
+  "variants": 20,
+  "documents": 108,
+  "supersession_edges": 69,
+  "chunks": 1941,
+  "questions": 432,
+  "unanswerable_questions": 132,
+  "languages": [
+    "en",
+    "tr",
+    "ru"
+  ],
+  "documents_in_both_splits": 0,
+  "leaked_documents": [],
+  "families": 9,
+  "holdout_families": [
+    "fam-ct4-drive-controller",
+    "fam-tr9-compressor",
+    "fam-xp400-hydraulic-pump"
+  ],
+  "development_families": [
+    "fam-dl3-valve-block",
+    "fam-hz8-filtration-skid",
+    "fam-mk7-gearbox",
+    "fam-nk5-winch-drive",
+    "fam-qs6-actuator",
+    "fam-vb2-cooling-unit"
+  ],
+  "documents_by_split": {
+    "development": 66,
+    "holdout": 42
+  },
+  "chunks_by_split": {
+    "development": 1173,
+    "holdout": 768
+  },
+  "questions_by_split": {
+    "development": 273,
+    "holdout": 159
+  },
+  "questions_by_language": {
+    "en": 144,
+    "ru": 144,
+    "tr": 144
+  },
+  "unanswerable_by_kind": {
+    "absent_specification": 18,
+    "attribute_absent_for_existing_product": 18,
+    "near_match_different_identifier": 18,
+    "superseded_without_replacement_asked": 18,
+    "contradictory_sources": 24,
+    "different_product_family": 18,
+    "malformed_part_number": 18
+  }
+}

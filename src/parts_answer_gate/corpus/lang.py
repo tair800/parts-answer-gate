@@ -12,6 +12,13 @@ non-English text is visibly not the language it claims to be.
 The text is written in the native scripts, not transliterated, and the generated files are UTF-8.
 """
 
+# The Turkish and Russian text below trips ruff's ambiguous-character rules on almost every
+# line: `ı`, `İ`, `Н`, `б`, `а`, `р` and their neighbours are exactly the characters those
+# rules warn about, and here they are the point rather than a typo. Suppressed for the file,
+# because a per-string noqa on a parallel corpus is noise that hides a real one.
+# ruff: noqa: RUF001, RUF002, RUF003
+
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -23,6 +23,8 @@ from __future__ import annotations
 import hashlib
 from typing import Final
 
+from parts_answer_gate.holdout import HOLDOUT_SHARE, is_held_out
+
 __all__ = [
     "DEVELOPMENT",
     "HOLDOUT",
@@ -34,11 +36,19 @@ __all__ = [
     "split_of",
 ]
 
-#: Must start with "blake2b(family_id" — `tests/test_kill_criteria.py::test_L` reads this string out
-#: of the artifact and checks it against the ADR.
-SPLIT_RULE: Final = "blake2b(family_id, digest_size=8) % 100 < 34  (digest read big-endian)"
+# The rule itself lives in `parts_answer_gate.holdout`, and this module re-exports it.
+#
+# It was implemented twice — once here and once there — and the two agreed on all 503 family
+# identifiers they were checked against, which is exactly the moment to delete one of them. Projects
+# 5 and 6 each shipped a rule implemented twice that later came to disagree, and the copy that
+# drifts is always the one nobody thinks to edit. A hold-out rule that two modules disagree about is
+# not a hold-out rule.
+#
+# `SPLIT_RULE` must start with "blake2b(family_id" — `tests/test_kill_criteria.py::test_L` reads
+# this string out of the artifact and checks it against the ADR.
+SPLIT_RULE: Final = f"blake2b(family_id, digest_size=8) % 100 < {HOLDOUT_SHARE}  (big-endian)"
 SPLIT_BY: Final = "product_family"
-HOLDOUT_THRESHOLD: Final = 34
+HOLDOUT_THRESHOLD: Final = HOLDOUT_SHARE
 
 HOLDOUT: Final = "holdout"
 DEVELOPMENT: Final = "development"
@@ -51,7 +61,8 @@ def family_split_score(family_id: str) -> int:
 
 
 def is_holdout(family_id: str) -> bool:
-    return family_split_score(family_id) < HOLDOUT_THRESHOLD
+    """Delegates. One implementation, so there is nothing for a second one to drift from."""
+    return is_held_out(family_id)
 
 
 def split_of(family_id: str) -> str:
