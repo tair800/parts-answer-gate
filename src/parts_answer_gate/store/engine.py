@@ -27,6 +27,7 @@ __all__ = [
     "SESSION_SETTINGS",
     "build_engine",
     "database_url",
+    "normalise_database_url",
     "session_scope",
     "wait_for_database",
 ]
@@ -54,13 +55,37 @@ SESSION_SETTINGS: Final[dict[str, str]] = {
 }
 
 
+def normalise_database_url(url: str) -> str:
+    """Coerce a provider's DSN into the driver this project actually installs.
+
+    Every managed PostgreSQL hands out a URL this codebase cannot use as given, and each does it
+    differently:
+
+    - **`postgres://`** — Render's `fromDatabase` and Heroku's convention. SQLAlchemy removed that
+      dialect name in 1.4, so `create_engine` raises `NoSuchModuleError` before a single query runs.
+    - **`postgresql://`** — Neon, Supabase, and most connection-string dialogs. SQLAlchemy accepts
+      it and resolves it to **psycopg2**, which this project does not install: it pins psycopg 3.
+      The failure is `ModuleNotFoundError: No module named 'psycopg2'` at connect time, which reads
+      like a missing dependency rather than a URL that needs one more word in it.
+
+    Only the scheme is touched. Everything after it — user, host, database, and the query string
+    that carries `sslmode=require`, which every managed provider needs — is passed through
+    unchanged, because rewriting any of that would be this function deciding how to connect rather
+    than which driver connects.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url
+
+
 def database_url() -> str:
-    return os.environ.get(DATABASE_URL_ENV, DEFAULT_DATABASE_URL)
+    return normalise_database_url(os.environ.get(DATABASE_URL_ENV, DEFAULT_DATABASE_URL))
 
 
 def build_engine(url: str | None = None, *, echo: bool = False, **kwargs: Any) -> Engine:
     engine = create_engine(
-        url or database_url(),
+        normalise_database_url(url) if url else database_url(),
         echo=echo,
         # Retrieval opens a session per request and holds it for milliseconds; a pool that recycles
         # rather than reconnects is the difference between 1ms and 30ms of connect time per query,

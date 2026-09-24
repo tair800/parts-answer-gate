@@ -356,7 +356,7 @@ def livez() -> JSONResponse:
 
 @app.get("/healthz", include_in_schema=False)
 def healthz(
-    session: Annotated[Session, Depends(db)],
+    session: Annotated[Session | None, Depends(optional_db)],
     config: Annotated[Settings, Depends(settings)],
 ) -> JSONResponse:
     """Liveness, plus the two facts an operator needs: is the index there, and can it be written to.
@@ -364,7 +364,18 @@ def healthz(
     A health check that returned `{"status": "ok"}` alone would be green on an instance whose chunk
     table is empty, which is the state in which every question abstains and the demo looks broken
     for a reason nothing reports.
+
+    Takes the **tolerant** session, and that is not a detail. With `Depends(db)` a database that
+    cannot be reached raises while FastAPI is still resolving dependencies — before this function
+    body exists — so the route answered **500** where its own docstring promised 503. A health check
+    that crashes instead of reporting is the one endpoint that must never do that: 500 says the
+    service is broken, and the truth was that its database was.
     """
+    if session is None:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "database": "unreachable or not configured"},
+        )
     try:
         chunks = session.execute(select(func.count()).select_from(ChunkRow)).scalar_one()
         documents = session.execute(select(func.count()).select_from(DocumentRow)).scalar_one()

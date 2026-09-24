@@ -48,6 +48,12 @@ env:
   # that exists outside this job's network namespace.
   PAG_DATABASE_URL: postgresql+psycopg://parts:ci_only_not_a_secret@localhost:5432/parts_answer_gate
   PAG_EMBEDDING_CACHE: .fastembed_cache
+  # The Qdrant service below is published on its own default port, while the compose file this
+  # project ships binds 16333 so it cannot collide with the other repositories in the workspace.
+  # `DEFAULT_QDRANT_URL` follows the compose file, so CI has to say where its own container is --
+  # without this the comparison connects to a port nothing is listening on and the evidence lane
+  # fails on a configuration mismatch that looks like a broken backend.
+  PAG_QDRANT_URL: http://localhost:6333
 
 jobs:
   fast:
