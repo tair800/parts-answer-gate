@@ -1,0 +1,54 @@
+{
+  "measured_against": "the live database, through store.effectivity.candidate_filter -- the same predicate the lexical and pgvector ranking statements interpolate",
+  "corrections_in_corpus": 8,
+  "supersessions_in_corpus": 64,
+  "valid_time": {
+    "claim": "an as-of query returns the revision in force for the machine at that date",
+    "family_id": "fam-ax7-accumulator-station",
+    "variant_id": "AX7-160",
+    "revision": "A",
+    "valid_from": "2020-03-04",
+    "valid_to": "2020-11-29",
+    "asked_inside_the_window": "2020-07-17",
+    "asked_after_the_withdrawal": "2020-11-30",
+    "returned_inside_the_window": true,
+    "returned_after_the_withdrawal": false,
+    "holds": true
+  },
+  "knowledge_time": {
+    "claim": "the same machine at the same as-of date returns what was believed then when a knowledge date is pinned, and what is believed now when it is not",
+    "family_id": "fam-ax7-accumulator-station",
+    "variant_id": "AX7-160",
+    "valid_from": "2020-11-29",
+    "valid_to": "2022-01-21",
+    "correction_known_from": "2022-03-13",
+    "as_of": "2021-06-26",
+    "original_document": "doc-ax7-accumulator-station-man-b-en",
+    "correction_document": "doc-ax7-accumulator-station-manc-b-en",
+    "at_historical_knowledge": {
+      "known_as_of": "2022-03-12",
+      "original_returned": true,
+      "correction_returned": false
+    },
+    "at_current_knowledge": {
+      "known_as_of": null,
+      "original_returned": false,
+      "correction_returned": true
+    },
+    "on_the_day_the_correction_landed": {
+      "known_as_of": "2022-03-13",
+      "exactly_one_of_the_pair": true,
+      "correction_returned": true,
+      "note": "the knowledge interval is half-open, so the correction applies from its own known_from"
+    },
+    "holds": true
+  },
+  "a_later_correction_does_not_rewrite_history": {
+    "claim": "the correction is already stored, and the historical query still returns the belief it replaced -- which an UPDATE would have destroyed",
+    "correction_is_present_in_the_database": true,
+    "historical_query_returns_the_original": true,
+    "the_two_documents_differ": true,
+    "holds": true
+  },
+  "all_three_hold": true
+}

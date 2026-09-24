@@ -1,0 +1,93 @@
+{
+  "release_gate": "FAILED",
+  "conditions": {
+    "A": {
+      "description": "an as-of query returns a superseded chunk",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    },
+    "B": {
+      "description": "an as-of query returns another variant's chunk",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    },
+    "C": {
+      "description": "a part number in an answer that its evidence lacks",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    },
+    "D": {
+      "description": "a cited span absent from the document it names",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    },
+    "E": {
+      "description": "the gate answers an unsupportable question",
+      "verdict": "FAIL",
+      "vacuous": false,
+      "why": "the gate answers 47 of 306 unsupportable questions. The weakness is concentrated: it refuses 44 of 45 questions about a product family that does not exist, and only 17 of 45 where the product exists and the attribute does not"
+    },
+    "F": {
+      "description": "hold-out recall@10 >= 0.85 and above every baseline",
+      "verdict": "FAIL",
+      "vacuous": false,
+      "why": "the ungated_rag baseline removes only the gate and so runs the identical retriever, making 'above every baseline' on a retrieval metric impossible rather than hard; and recall@10 is the wrong measure of what effectivity filtering buys, because removing the predicate enlarges the candidate pool"
+    },
+    "G": {
+      "description": "hold-out wrong-answer rate <= 0.02",
+      "verdict": "PASS",
+      "vacuous": true,
+      "why": "near-vacuous. For the 297 hold-out questions that name a variant -- 297 of 312 -- the numerator is empty by construction: the effectivity predicate excludes revision- and variant-incorrect passages upstream of the gate, so no answer the system can give for those is capable of being wrong in either sense. The measured 0.0047 comes entirely from the 15 questions about a product family the corpus does not contain, where the filter has nothing to constrain. G measures the gate only on the class of question the filter cannot help with"
+    },
+    "H": {
+      "description": "ungated wrong-answer rate >= 5x the gated rate",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    },
+    "I": {
+      "description": "abstention on the unanswerable set >= 0.90",
+      "verdict": "FAIL",
+      "vacuous": false,
+      "why": "abstention on the unanswerable set is 0.8464 against a floor of 0.90. Same mechanism as E: gate.term_is_covered approximates stemming with a bidirectional prefix match and errs towards covering, and attribute_absent_for_existing_product is where it costs most"
+    },
+    "J": {
+      "description": "two runs agree byte for byte",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    },
+    "K": {
+      "description": "vector retrieval executes through pgvector",
+      "verdict": "FAIL",
+      "vacuous": false,
+      "why": "the query plan does not mention a vector index. pgvector 0.8.6 is installed, the column is a real `vector`, and the executed statement uses `<=>` -- but the effectivity filter has already reduced the candidate set to 21 rows, for which PostgreSQL correctly prefers a sequential scan: forcing the ANN plan measures 29.2ms against the planner's 3.1ms. The criterion asked for an index scan on a query that should not have one"
+    },
+    "L": {
+      "description": "a document appears in both splits",
+      "verdict": "PASS",
+      "vacuous": false,
+      "why": null
+    }
+  },
+  "failing": [
+    "E",
+    "F",
+    "I",
+    "K"
+  ],
+  "disclosed_failures": [
+    "E",
+    "F",
+    "I",
+    "K"
+  ],
+  "vacuous_passes": [
+    "G"
+  ],
+  "note": "The thresholds in tests/test_kill_criteria.py were fixed before any source file existed and none has been lowered. Nothing here marks a failure as accepted: the failing set is pinned, and this script exits non-zero if reality diverges from it in either direction."
+}

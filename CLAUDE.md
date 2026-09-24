@@ -420,8 +420,8 @@ hold-out result mean anything and what a reader who does not trust the author ca
 
 **Iteration one was scored, and then found invalid.** ADR-002 has it in full; briefly:
 
-- Kill conditions **F** and **H** are reported **FAIL** and stay FAIL. Both failures are in the
-  criteria, not in the split. F requires the system to beat `ungated_rag` on a *retrieval* metric,
+- Kill conditions **E, F, I and K** are reported **FAIL**, and **G** passes near-vacuously.
+  ADR-004 has the measured result; most of the failures are in the criteria, not in the system. F requires the system to beat `ungated_rag` on a *retrieval* metric,
   but that arm removes only the gate and therefore runs the identical retriever — an impossible
   target, and a defect in a criterion written before the arms existed. H requires an ungated
   wrong-answer rate above zero, but the effectivity filter runs before the gate and already

@@ -1,0 +1,291 @@
+{
+  "arms": [
+    "system",
+    "bm25_only",
+    "dense_only",
+    "hybrid_without_effectivity",
+    "ungated_rag"
+  ],
+  "development": {
+    "answering": {
+      "abstention_rate": 0.25609756097560976,
+      "attribution": {
+        "gate": 0,
+        "generation": 0,
+        "none": 738,
+        "retrieval": 0
+      },
+      "coverage": 0.7046070460704607,
+      "coverage_curve": [
+        {
+          "answered": 682,
+          "coverage": 0.924119241192412,
+          "threshold": 0.0,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 682,
+          "coverage": 0.924119241192412,
+          "threshold": 0.1,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 675,
+          "coverage": 0.9146341463414634,
+          "threshold": 0.2,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 654,
+          "coverage": 0.8861788617886179,
+          "threshold": 0.3,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 639,
+          "coverage": 0.8658536585365854,
+          "threshold": 0.4,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 596,
+          "coverage": 0.8075880758807588,
+          "threshold": 0.5,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 520,
+          "coverage": 0.7046070460704607,
+          "threshold": 0.6,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 465,
+          "coverage": 0.6300813008130082,
+          "threshold": 0.7,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 427,
+          "coverage": 0.5785907859078591,
+          "threshold": 0.8,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 166,
+          "coverage": 0.22493224932249323,
+          "threshold": 0.9,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        }
+      ],
+      "definition": "revision-incorrect or variant-incorrect",
+      "review_rate": 0.03929539295392954,
+      "shipped_threshold": 0.6,
+      "supplementary": {
+        "declared_after_holdout_scoring": true,
+        "gated_answers": 520,
+        "gated_unsupported_answer_rate": 0.06346153846153846,
+        "replaces_kill_condition": null,
+        "ungated_answers": 738,
+        "ungated_unsupported_answer_rate": 0.2845528455284553
+      },
+      "ungated_wrong_answer_rate": 0.04065040650406504,
+      "wrong_answer_rate": 0.0,
+      "wrong_examples": []
+    },
+    "retrieval": {
+      "baselines": {
+        "bm25_only": {
+          "mrr": 0.7777777777777778,
+          "ndcg_at_10": 0.7827827604843078,
+          "recall_at_10": 0.7973484848484849
+        },
+        "dense_only": {
+          "mrr": 0.749542297979798,
+          "ndcg_at_10": 0.7631395839970514,
+          "recall_at_10": 0.803030303030303
+        },
+        "hybrid_without_effectivity": {
+          "mrr": 0.39537863756613756,
+          "ndcg_at_10": 0.5275970847047896,
+          "recall_at_10": 0.9431818181818182
+        },
+        "ungated_rag": {
+          "mrr": 0.7831439393939394,
+          "ndcg_at_10": 0.7868635346658558,
+          "recall_at_10": 0.7973484848484849
+        }
+      },
+      "system": {
+        "mrr": 0.7831439393939394,
+        "ndcg_at_10": 0.7868635346658558,
+        "recall_at_10": 0.7973484848484849,
+        "scored": 528,
+        "skipped_without_relevant": 210
+      }
+    }
+  },
+  "holdout": {
+    "answering": {
+      "abstention_rate": 0.28525641025641024,
+      "attribution": {
+        "gate": 1,
+        "generation": 0,
+        "none": 311,
+        "retrieval": 0
+      },
+      "coverage": 0.6858974358974359,
+      "coverage_curve": [
+        {
+          "answered": 288,
+          "coverage": 0.9230769230769231,
+          "threshold": 0.0,
+          "wrong": 1,
+          "wrong_answer_rate": 0.003472222222222222
+        },
+        {
+          "answered": 288,
+          "coverage": 0.9230769230769231,
+          "threshold": 0.1,
+          "wrong": 1,
+          "wrong_answer_rate": 0.003472222222222222
+        },
+        {
+          "answered": 285,
+          "coverage": 0.9134615384615384,
+          "threshold": 0.2,
+          "wrong": 1,
+          "wrong_answer_rate": 0.0035087719298245615
+        },
+        {
+          "answered": 275,
+          "coverage": 0.8814102564102564,
+          "threshold": 0.3,
+          "wrong": 1,
+          "wrong_answer_rate": 0.0036363636363636364
+        },
+        {
+          "answered": 261,
+          "coverage": 0.8365384615384616,
+          "threshold": 0.4,
+          "wrong": 1,
+          "wrong_answer_rate": 0.0038314176245210726
+        },
+        {
+          "answered": 241,
+          "coverage": 0.7724358974358975,
+          "threshold": 0.5,
+          "wrong": 1,
+          "wrong_answer_rate": 0.004149377593360996
+        },
+        {
+          "answered": 214,
+          "coverage": 0.6858974358974359,
+          "threshold": 0.6,
+          "wrong": 1,
+          "wrong_answer_rate": 0.004672897196261682
+        },
+        {
+          "answered": 198,
+          "coverage": 0.6346153846153846,
+          "threshold": 0.7,
+          "wrong": 1,
+          "wrong_answer_rate": 0.005050505050505051
+        },
+        {
+          "answered": 183,
+          "coverage": 0.5865384615384616,
+          "threshold": 0.8,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        },
+        {
+          "answered": 63,
+          "coverage": 0.20192307692307693,
+          "threshold": 0.9,
+          "wrong": 0,
+          "wrong_answer_rate": 0.0
+        }
+      ],
+      "definition": "revision-incorrect or variant-incorrect",
+      "review_rate": 0.028846153846153848,
+      "shipped_threshold": 0.6,
+      "supplementary": {
+        "declared_after_holdout_scoring": true,
+        "gated_answers": 214,
+        "gated_unsupported_answer_rate": 0.06542056074766354,
+        "replaces_kill_condition": null,
+        "ungated_answers": 312,
+        "ungated_unsupported_answer_rate": 0.3076923076923077
+      },
+      "ungated_wrong_answer_rate": 0.04807692307692308,
+      "wrong_answer_rate": 0.004672897196261682,
+      "wrong_examples": [
+        {
+          "as_of": "2025-09-11",
+          "asked_variant": null,
+          "cited": [
+            "fam-vb2-cooling-unit/E"
+          ],
+          "question_id": "q-neg-otherfamily-14-tr",
+          "reason": "cited a revision not in force at the as-of date"
+        }
+      ]
+    },
+    "retrieval": {
+      "baselines": {
+        "bm25_only": {
+          "mrr": 0.9066358024691359,
+          "ndcg_at_10": 0.9115406910218259,
+          "recall_at_10": 0.9259259259259259
+        },
+        "dense_only": {
+          "mrr": 0.8597993827160494,
+          "ndcg_at_10": 0.8789039627653051,
+          "recall_at_10": 0.9351851851851852
+        },
+        "hybrid_without_effectivity": {
+          "mrr": 0.3695160934744268,
+          "ndcg_at_10": 0.49980630046105884,
+          "recall_at_10": 0.9166666666666666
+        },
+        "ungated_rag": {
+          "mrr": 0.9097222222222222,
+          "ndcg_at_10": 0.9139653160879639,
+          "recall_at_10": 0.9259259259259259
+        }
+      },
+      "system": {
+        "mrr": 0.9097222222222222,
+        "ndcg_at_10": 0.9139653160879639,
+        "recall_at_10": 0.9259259259259259,
+        "scored": 216,
+        "skipped_without_relevant": 96
+      }
+    }
+  },
+  "kill_conditions": [
+    "F",
+    "G",
+    "H"
+  ],
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "scored_once": "the hold-out membership was materialised into artifacts/holdout.json and committed before this file first existed; its position in git history is the evidence"
+}

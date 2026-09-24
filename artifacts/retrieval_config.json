@@ -1,0 +1,49 @@
+{
+  "effectivity_filter_stage": "before_ranking",
+  "embedding_dimensions": 384,
+  "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+  "fusion": "reciprocal rank fusion",
+  "gate_primary_threshold": 0.6,
+  "gate_threshold_sweep": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9
+  ],
+  "hnsw_build_parameters": {
+    "ef_construction": 200,
+    "index_name": "ix_chunk_embedding_hnsw",
+    "m": 16,
+    "method": "hnsw",
+    "opclass": "vector_cosine_ops"
+  },
+  "normalisation": {
+    "distance": "cosine",
+    "l2_normalised": false,
+    "measured_probe_norm": 5.4203,
+    "note": "None. The quantised ONNX build fastembed serves for this model does NOT L2-normalise its output: `Embedder.measured_norm()` on the probe string returns about 5.4, not 1.0, and that is a measurement rather than an assumption. Vectors are therefore stored exactly as the encoder emits them and compared with cosine distance, which normalises internally \u2014 so retrieval is unaffected, but `<->` (L2) and `<#>` (inner product) would NOT rank identically to `<=>` here, and the HNSW index is built with `vector_cosine_ops` to match."
+  },
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "session_settings": {
+    "hnsw.ef_search": "100",
+    "hnsw.iterative_scan": "strict_order"
+  },
+  "stage_weights": {
+    "dense": 1.0,
+    "exact_identifier": 2.0,
+    "lexical": 1.0
+  }
+}

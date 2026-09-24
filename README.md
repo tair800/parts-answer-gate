@@ -4,10 +4,10 @@
 system failed them.**
 
 > **ORIGINAL RELEASE GATE: FAILED.** Twelve kill conditions and their thresholds were committed to
-> `DECISIONS.md` **before any source file existed**. Three do not hold. A fourth passes for a reason
-> that makes the pass worthless. None was lowered, none was deleted, nothing was tuned against the
-> hold-out after it was scored, and the project is closed here rather than adjusted until it
-> cleared its own bar.
+> `DECISIONS.md` **before any source file existed**. Four do not hold. A fifth passes for a reason
+> that makes the pass nearly worthless. None was lowered, none was deleted, nothing was tuned
+> against the hold-out after it was scored, and the project is closed here rather than adjusted
+> until it cleared its own bar.
 
 ---
 
@@ -50,9 +50,9 @@ part number is therefore impossible rather than improbable.
 
 - **The gate over-covers in Turkish and Russian.** It answers a small number of questions the corpus
   cannot support, and **every one of those failures is Turkish or Russian; none is English.**
-- **Three of the twelve predeclared criteria do not hold, and a fourth is vacuous** — and the reason
-  is the same in every case, which turned out to be the most interesting result in the project. See
-  [Where it falls short](#where-it-falls-short).
+- **Four of the twelve predeclared criteria do not hold, and a fifth is near-vacuous** — and for
+  most of them the reason is the same one, which turned out to be the most interesting result in
+  the project. See [Where it falls short](#where-it-falls-short).
 
 ### Why nothing was tuned afterwards
 
@@ -143,34 +143,71 @@ Every figure below is emitted from `artifacts/*.json` by `scripts/readme_numbers
 
 ## Where it falls short
 
-### Three fail, and a fourth passes for the wrong reason
+### Four fail, and a fifth passes for the wrong reason
 
 `DECISIONS.md` fixed twelve kill conditions and their thresholds **before any source file existed**.
-Thresholds may be raised and may never be lowered, and none has been touched.
+None has been lowered, none deleted, none marked `xfail`. Four do not hold.
 
-- **E — "the gate never answers a question the corpus cannot support."** It does, and **every
-  failure is Turkish or Russian; none is English.** `gate.term_is_covered` approximates stemming
-  with a bidirectional prefix match, because an exact-match rule would score coverage near zero on
-  two of the three languages and call that caution. Its own docstring says it errs towards covering.
-  The first corpus was too easy to show what that costs; this one prices it.
-- **F — "recall@10 above every predeclared baseline."** `ungated_rag` removes only the gate, so it
-  runs the identical retriever — an impossible target rather than a hard one. And recall@10 is the
-  wrong question: removing the effectivity predicate enlarges the candidate pool, so recall barely
-  moves while the right passage falls from rank 1 to rank 8. The MRR column above is where the
-  difference is, and F does not ask about MRR.
-- **H — "the ungated baseline must be at least five times worse."** Its `ungated > 0` clause fails,
-  because the effectivity filter runs upstream of the gate and already makes the quantity H measures
-  impossible to get wrong.
-- **G — "wrong-answer rate ≤ 0.02."** Passes at zero, and the zero is worth nothing. Same structural
-  reason as H: no answer this system can give is *capable* of being revision- or variant-incorrect,
-  so G cannot distinguish it from a broken one.
+**E — the gate answers questions the corpus cannot support.** The weakness is not spread evenly, and
+where it concentrates is the finding:
 
-E, F, G and H share one root cause, and it is worth more than any of the individual results: **all
-four were written as if the effectivity filter sat beside the thing being measured, and it sits
-upstream of everything.** That is a design error in criteria I wrote before the implementation
-existed, and pre-registration is what made it visible rather than convenient.
+| unanswerable kind | refused |
+|---|---|
+| superseded, replacement asked for | 45/45 |
+| a product family that does not exist | 44/45 |
+| an identifier that nearly matches a real one | 44/45 |
+| two in-force sources contradict each other | 35/36 |
+| a specification absent from the manual | 37/45 |
+| a malformed part number | 37/45 |
+| **an attribute absent for a product that exists** | **17/45** |
 
-The gate was **not** adjusted after the hold-out was scored.
+When the machine is real and the attribute simply is not documented, the gate answers 62% of the
+time. `gate.term_is_covered` stands in for a stemmer with a bidirectional prefix match — its own
+docstring says it errs towards covering — and a question about a real machine shares enough terms
+with that machine's *other* specifications to clear the coverage floor. **The failures are
+concentrated in Turkish and Russian**, which is what the per-language table above shows.
+
+**I — abstention on the unanswerable set falls below the 0.90 floor.** Same mechanism as E.
+
+**F — the system does not beat every baseline.** `dense_only` wins by **0.0093**; `bm25_only` ties
+exactly; `ungated_rag` ties by construction, because it removes only the gate and therefore runs the
+identical retriever, which makes that comparison impossible rather than hard.
+
+And recall@10 is the wrong question. Removing the effectivity predicate leaves recall roughly where
+it was — on development it goes *up* — while **MRR collapses from 0.9097 to 0.3695**. What the
+filter buys is that the right passage is at rank 1 instead of rank 8. F does not ask about MRR.
+
+**K — the query plan does not use a vector index.** pgvector 0.8.6 is installed, the column is a
+real `vector`, and the executed statement uses `<=>`. But the effectivity filter has already reduced
+the candidate set to **21 rows**, for which PostgreSQL correctly prefers a sequential scan — forcing
+the ANN plan measures **29.2 ms against the planner's 3.1 ms**. The criterion demanded an index scan
+on a query that should not have one, and the planner is right.
+
+**G passes, and the pass is near-vacuous.** For the 297 hold-out questions that name a variant — 297
+of 312 — the numerator is empty by construction: the effectivity predicate excludes revision- and
+variant-incorrect passages *upstream of the gate*, so no answer the system can give for those is
+*capable* of being wrong in either sense. The measured rate comes entirely from the 15 questions
+about a family the corpus does not contain, where the filter has nothing to constrain.
+
+### One root cause under most of it
+
+E and I are the gate's Turkish and Russian over-covering. F, G, H and K are all the same thing:
+**the criteria were written as if the effectivity filter sat beside the thing being measured, and it
+sits upstream of everything.** It makes F's strongest baseline unbeatable, it empties G's numerator,
+it emptied H's until a corpus correction restored the one class of question the filter cannot reach,
+and it shrinks the candidate set until an index scan is the wrong plan and K cannot hold.
+
+That is a design error in criteria written before the implementation existed. Pre-registration is
+what made it visible rather than convenient, and it is a more interesting result than a system that
+cleared its own bar.
+
+### What was not done about it
+
+No third benchmark. No tuning against this hold-out — not one retrieval weight, effectivity rule,
+bitemporal rule, embedding, chunking parameter, gate threshold, citation rule or corpus membership
+was changed after it was scored. The failing set is **pinned** in `scripts/release_gate.py`, which
+fails the build if reality diverges from it in either direction, so a regression cannot hide behind
+a disclosed failure and a disclosed failure cannot quietly become a pass.
 
 ### Honestly not built
 

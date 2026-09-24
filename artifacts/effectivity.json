@@ -1,0 +1,51 @@
+{
+  "as_of_dates_replayed": 5,
+  "candidate_predicate_sql": "(chunk.valid_from <= :as_of AND (chunk.valid_to IS NULL OR :as_of < chunk.valid_to)) AND (chunk.known_to IS NULL) AND (chunk.language = ANY(:languages)) AND (chunk.variant_id = :variant_id) AND ((chunk.serial_first IS NULL AND chunk.serial_last IS NULL))",
+  "candidate_predicate_terms": {
+    "as_of": true,
+    "knowledge": true,
+    "language": true,
+    "serial": true,
+    "variant": true
+  },
+  "candidate_set_constrained_in_sql": true,
+  "families_in_replay_sample": 4,
+  "filter_applied": "before_ranking",
+  "kill_conditions": [
+    "A",
+    "B"
+  ],
+  "knowledge_time": {
+    "a_later_correction_did_not_rewrite_history": true,
+    "case": {
+      "as_of": "2021-06-26",
+      "correction_document": "doc-ax7-accumulator-station-manc-b-en",
+      "correction_known_from": "2022-03-13",
+      "family_id": "fam-ax7-accumulator-station",
+      "original_document": "doc-ax7-accumulator-station-man-b-en",
+      "variant_id": null
+    },
+    "correction_hidden_at_historical_knowledge": true,
+    "correction_returned_after_it_was_issued": true,
+    "correction_returned_under_current_knowledge": true,
+    "corrections_in_corpus": 24,
+    "original_hidden_under_current_knowledge": true,
+    "original_returned_at_historical_knowledge": true,
+    "tested": true
+  },
+  "method": "each question is replayed at every as-of date and every returned chunk is checked against the corpus's own validity interval and variant, never against anything the retriever reported about itself",
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "queries": 600,
+  "replay_sample_size": 120,
+  "superseded_chunks_returned": 0,
+  "superseded_examples": [],
+  "wrong_variant_chunks_returned": 0,
+  "wrong_variant_examples": []
+}

@@ -357,6 +357,12 @@ silently.
 **Status:** accepted · **Date:** 2026-09-24 · **Supersedes nothing. ADR-001 and ADR-002 stand
 unedited above.**
 
+> **Written between the first score of the second hold-out and the final one.** It names E, F and H
+> as the failures; the final scoring found **E, F, I and K**, and H passes. ADR-004 has the measured
+> result and explains what moved. This ADR is left exactly as it was written rather than edited to
+> agree with what came later — the reasoning in it is what produced the corrections, and a decision
+> record rewritten after the fact is not a record.
+
 ADR-002 ended by recording that the first benchmark was not a valid retrieval test. This is the
 record of the second one: what was rebuilt, what the fresh hold-out found, and which of it was
 fixed against which of it was published.
@@ -453,3 +459,117 @@ curve's wrong-answer axis therefore rose as the threshold fell because *more ref
 numerator* — not because any lower-threshold answer would have been incorrect. `AnswerOutcome` had
 documented from the start that these fields must be filled for every question including the refused
 ones. The runner did not fill them; it does now, from the evidence the gate looked at and declined.
+
+---
+
+## ADR-004 — The final result, and the close
+
+**Status:** accepted · **Date:** 2026-09-24 · **ADR-001, ADR-002 and ADR-003 stand unedited above.**
+
+ADR-003 was written between the first score of the second hold-out and the final one, and named E, F
+and H as the failures. The final scoring changed that, and this ADR records what was actually
+measured rather than editing ADR-003 to look prescient.
+
+**ORIGINAL RELEASE GATE: FAILED — 4 of 12.**
+
+| | condition | verdict |
+|---|---|---|
+| A | an as-of query returns a superseded chunk | PASS |
+| B | an as-of query returns another variant's chunk | PASS |
+| C | a part number in an answer that its evidence lacks | PASS |
+| D | a cited span absent from the document it names | PASS |
+| **E** | the gate answers an unsupportable question | **FAIL** |
+| **F** | recall@10 ≥ 0.85 and above every baseline | **FAIL** |
+| G | hold-out wrong-answer rate ≤ 0.02 | PASS, near-vacuous |
+| H | ungated wrong-answer rate ≥ 5× gated | PASS |
+| **I** | abstention on the unanswerable set ≥ 0.90 | **FAIL** |
+| J | two runs agree byte for byte | PASS |
+| **K** | vector retrieval executes through pgvector | **FAIL** |
+| L | a document appears in both splits | PASS |
+
+### What changed between the first score and the final one, and why
+
+Three corrections, all argued in ADR-003, none of them a response to a number:
+
+1. **The conflict signal compared units rather than quantities.** Fixing it moved coverage from
+   0.1481 to **0.6859** and the review rate from 0.5993 to **0.0288**. The first figure was a gate
+   drowning in contradictions it had invented between three different torque specifications on one
+   page.
+2. **The hold-out enumeration dropped every question about a family the corpus does not contain.**
+   Restoring them added 15 questions, all unanswerable. This is what turned G and H from vacuous
+   into measurable — and it is what made I fail.
+3. **The coverage curve scored refusals as wrong answers**, because an abstention cites nothing and
+   an empty cited set reads as revision-incorrect.
+
+**H now passes at 10.3×** (ungated 0.0481 against gated 0.0047) and the pass is real: it is measured
+on the one class of question where the effectivity filter cannot help, which is exactly the class
+correction 2 restored.
+
+### The four failures, exactly
+
+**E — 47 of 306 unanswerable questions were answered.** The weakness is not spread evenly:
+
+| unanswerable kind | refused |
+|---|---|
+| superseded, replacement asked for | 45/45 |
+| a product family that does not exist | 44/45 |
+| an identifier that nearly matches a real one | 44/45 |
+| two in-force sources contradict each other | 35/36 |
+| a specification absent from the manual | 37/45 |
+| a malformed part number | 37/45 |
+| **an attribute absent for a product that exists** | **17/45** |
+
+The last row is the finding. When the machine is real and the attribute simply is not documented,
+the gate answers 62% of the time. `gate.term_is_covered` approximates stemming with a bidirectional
+prefix match — its own docstring says it errs towards covering — and a question about a real machine
+shares enough terms with that machine's other specifications to clear the coverage floor.
+
+**F — the system does not beat every baseline.** `dense_only` reaches **0.9352** against the
+system's **0.9259**: it wins by **0.0093**. `bm25_only` ties exactly at 0.9259. `ungated_rag` ties by
+construction, because it removes only the gate and runs the identical retriever, which makes that
+comparison impossible rather than hard.
+
+And recall@10 is the wrong question. Removing the effectivity predicate leaves recall almost
+unchanged — `hybrid_without_effectivity` scores 0.9167 on the hold-out and 0.9432 on development,
+*above* the system — while **MRR collapses from 0.9097 to 0.3695**. What the filter buys is that the
+right passage is at rank 1 rather than rank 8. F does not ask about MRR.
+
+**I — abstention on the unanswerable set is 0.8464 against a floor of 0.90.** Same mechanism as E.
+Counting only `ABSTAIN` and not `REVIEW` it is 0.7255; both figures are published, because `REVIEW`
+withholds but "abstention" is the lenient reading of it.
+
+**K — the query plan does not mention a vector index.** pgvector 0.8.6 is installed, the column is a
+real `vector`, and the executed statement uses `<=>` — but the effectivity filter has already cut
+the candidate set to **21 rows**, for which PostgreSQL correctly prefers a sequential scan. Forcing
+the ANN plan measures **29.2ms against the planner's 3.1ms**. The criterion demanded an index scan
+on a query that should not have one, and the planner is right.
+
+### G passes, and the pass is near-vacuous
+
+For the 297 hold-out questions that name a variant — 297 of 312 — G's numerator is empty by
+construction: the effectivity predicate excludes revision- and variant-incorrect passages upstream
+of the gate, so no answer the system can give for those is *capable* of being wrong in either sense.
+The measured 0.0047 is a single wrong answer, and it comes from the 15 questions about a family the
+corpus does not contain, where the filter has nothing to constrain. **G measures the gate only on
+the class of question the filter cannot help with.**
+
+### One root cause under five of the six
+
+E and I are the gate's Turkish and Russian over-covering. F, G, H and K are all the same thing:
+**the criteria were written as if the effectivity filter sat beside the thing being measured, and it
+sits upstream of everything.** It makes F's strongest baseline unbeatable, it empties G's numerator,
+it emptied H's until a corpus correction restored the one class it cannot reach, and it shrinks the
+candidate set until an index scan is the wrong plan and K's assertion cannot hold.
+
+That is the result this project has to report, and it is more interesting than a system that cleared
+its own bar. Pre-registration is what made it visible instead of convenient.
+
+### Closed
+
+No third benchmark. No tuning against this hold-out. The twelve conditions are unchanged, none was
+lowered, none was deleted, and none was marked `xfail`. The failing set is pinned in
+`scripts/release_gate.py`, which fails the build if reality diverges from it in either direction —
+so a regression cannot hide behind a disclosed failure, and a disclosed failure cannot quietly
+become a pass.
+
+**PROJECT 7 — CLOSED AS A PRE-REGISTERED NEGATIVE RESULT.**

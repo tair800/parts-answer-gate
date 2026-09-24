@@ -1,0 +1,24 @@
+{
+  "gate_digest_stable": true,
+  "gate_digests": [
+    "95aca70a2e63e4481a7c4baaa5379062b65c65b09a843187546b1f535ddd7dbd",
+    "95aca70a2e63e4481a7c4baaa5379062b65c65b09a843187546b1f535ddd7dbd"
+  ],
+  "kill_condition": "J",
+  "method": "retrieved chunk identifiers in rank order, not as a set \u2014 a ranking that wobbled while returning the same ten chunks would pass a set comparison and fail every reasonable reading of 'two runs agree'",
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "questions": 312,
+  "retrieval_digest_stable": true,
+  "retrieval_digests": [
+    "379fce1fdbc3ba38de3264328667341e5a6576870e41b98ed41f601b3d2d61b7",
+    "379fce1fdbc3ba38de3264328667341e5a6576870e41b98ed41f601b3d2d61b7"
+  ],
+  "runs": 2
+}

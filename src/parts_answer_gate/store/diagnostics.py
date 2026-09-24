@@ -74,12 +74,28 @@ class BreachOutcome:
 
 
 def executed_through_pgvector(plan: str) -> bool:
-    """The guard. A plan is evidence only if the vector index *and* the operator are both in it.
+    """The guard: did the **database** compute the distance?
 
-    Either alone is insufficient. A plan can name the index in a bitmap step that never computes a
-    distance, and a plan can contain the operator in a sort node that read every row sequentially.
+    This asks for the vector operator in the executed plan, and deliberately not for the index.
+    Requiring the index made the guard unable to fire at all on the queries this system issues: the
+    effectivity predicate reduces the candidate set to about twenty rows, PostgreSQL correctly
+    prefers a sequential scan over so few, and so neither the real query nor the in-process
+    substitution named an index. `caught = accepted and rejected` was then `False and True`, and the
+    falsifiability check reported a miss on a breach it had in fact rejected.
+
+    The operator is the right question anyway. What kill condition K claims is that vector retrieval
+    *executes inside the database* rather than in a Python sort — and `<=>` appearing in the plan is
+    exactly that claim, while the index is a performance decision the planner is entitled to make.
+    The in-process breach fetches rows and sorts them in Python, so its plan contains no distance
+    operator at all and this guard rejects it.
+
+    **Whether the index was used is reported separately and is not laundered into this.**
+    `explain_mentions_index` in the artifact carries it, kill condition K asserts it, and K
+    **fails**: the planner declines the index at this candidate-set size, and forcing it measures
+    29.2ms against the planner's 3.1ms. Reporting a true thing (the database computed the distance)
+    does not make the false thing (an index scan happened) true, and the artifact says both.
     """
-    return str(HNSW_BUILD_PARAMETERS["index_name"]) in plan and DISTANCE_OPERATOR in plan
+    return DISTANCE_OPERATOR in plan
 
 
 def in_memory_dense_search_breach(

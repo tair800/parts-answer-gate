@@ -438,14 +438,21 @@ def breach_incremental_index_skip(session: Session, embedder: Embedder) -> Breac
     real = measure_index_lifecycle(session, embedder, sample_size=8)
     before = int(real["chunks_re_embedded"])
 
-    with _patched(loader_module, "content_hash", lambda _text, **_kwargs: "constant"):
-        frozen = measure_index_lifecycle(session, embedder, sample_size=8)
-    after = int(frozen["chunks_re_embedded"])
+    # `_needs_embedding` is the decision, so that is what is broken. An earlier version of this
+    # breach froze `content_hash` to a constant instead, and running it showed why that does not
+    # work: a constant hash does not match the digest already stored, so every chunk looks
+    # *changed* and the loader re-embeds all of them. The breach produced the opposite of the
+    # failure it was named for, and the detector dutifully reported 8 of 8 re-embedded — which is
+    # the correct answer to a question nobody meant to ask.
+    with _patched(loader_module, "_needs_embedding", lambda _stored, _digest: False):
+        skipped = measure_index_lifecycle(session, embedder, sample_size=8)
+    after = int(skipped["chunks_re_embedded"])
 
     return BreachResult(
         name="incremental_index_skip",
         guarantee="changed chunks are re-embedded; unchanged chunks are not",
-        mechanism="content_hash replaced by a constant, so no edit ever registers as a change",
+        mechanism="loader._needs_embedding replaced by one that always answers False, so a chunk "
+        "whose text changed is never re-embedded",
         detector="measure_index_lifecycle's count of chunks the loader actually re-embedded "
         "after their text was changed",
         baseline=f"{before} of 8 changed chunks re-embedded",

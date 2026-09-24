@@ -23,11 +23,12 @@ scored, three independent adversarial reviews run and their confirmed findings f
 
 Reported in full in the README's **Where it falls short** section and in ADR-003. The short form:
 
-- **E, F and H fail.** E because the gate answered ten unanswerable questions, every one of them
-  Turkish or Russian. F and H because the criteria were written as if the effectivity filter were
-  beside the thing being measured, and it is upstream of everything.
-- **G passes vacuously**, for the same structural reason H fails, and ADR-003 says so rather than
-  banking the pass.
+- **E, F, I and K fail.** E and I are the gate over-covering in Turkish and Russian. F and K, like
+  G's vacuity, trace to the effectivity filter sitting upstream of everything the criteria measure.
+- **H passes at 10.3x**, and the pass is real — it is measured on the one class of question the
+  filter cannot help with.
+- **G passes near-vacuously**: for 297 of 312 hold-out questions its numerator is empty by
+  construction. ADR-004 says so rather than banking the pass.
 - No threshold was lowered, no kill test edited, and the gate was not adjusted after the hold-out
   was scored.
 

@@ -1,0 +1,108 @@
+{
+  "abstention_rate_on_unanswerable": 0.8464052287581699,
+  "answered_without_support": 47,
+  "article_50_note": "the disclosure is a field on the response model with a minimum length, and the model is frozen, so it cannot be blanked by a caller or stripped by middleware. It is a transparency obligation and nothing else is asserted",
+  "decision_precedes_generation": true,
+  "kill_conditions": [
+    "E",
+    "I"
+  ],
+  "model_can_override_gate": false,
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "responses_checked": 1050,
+  "responses_missing_ai_disclosure": 0,
+  "unanswerable_kinds": {
+    "absent_specification": {
+      "rate": 0.8222222222222222,
+      "refused": 37,
+      "total": 45
+    },
+    "attribute_absent_for_existing_product": {
+      "rate": 0.37777777777777777,
+      "refused": 17,
+      "total": 45
+    },
+    "contradictory_sources": {
+      "rate": 0.9722222222222222,
+      "refused": 35,
+      "total": 36
+    },
+    "different_product_family": {
+      "rate": 0.9777777777777777,
+      "refused": 44,
+      "total": 45
+    },
+    "malformed_part_number": {
+      "rate": 0.8222222222222222,
+      "refused": 37,
+      "total": 45
+    },
+    "near_match_different_identifier": {
+      "rate": 0.9777777777777777,
+      "refused": 44,
+      "total": 45
+    },
+    "superseded_without_replacement_asked": {
+      "rate": 1.0,
+      "refused": 45,
+      "total": 45
+    }
+  },
+  "unanswerable_questions": 306,
+  "unsupported_examples": [
+    {
+      "question_id": "q-neg-absent-12-en",
+      "text": "What is the coolant expansion tank pre-charge pressure for the XP-400?"
+    },
+    {
+      "question_id": "q-neg-absent-12-tr",
+      "text": "XP-400 i\u00e7in so\u011futma suyu genle\u015fme tank\u0131 \u00f6n bas\u0131nc\u0131 nedir?"
+    },
+    {
+      "question_id": "q-neg-attribute-0-en",
+      "text": "What is the mounting flange bolt torque for the SW3-80T?"
+    },
+    {
+      "question_id": "q-neg-attribute-0-tr",
+      "text": "SW3-80T i\u00e7in ba\u011flant\u0131 flan\u015f\u0131 c\u0131vata torku nedir?"
+    },
+    {
+      "question_id": "q-neg-attribute-5-en",
+      "text": "What is the maximum permissible case drain pressure for the TR9-55?"
+    },
+    {
+      "question_id": "q-neg-attribute-6-en",
+      "text": "What fuse rating protects the anti-condensation heater circuit of the TR9-55X?"
+    },
+    {
+      "question_id": "q-neg-attribute-6-ru",
+      "text": "\u041a\u0430\u043a\u043e\u0439 \u043d\u043e\u043c\u0438\u043d\u0430\u043b \u043f\u0440\u0435\u0434\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u0435\u043b\u044f \u0437\u0430\u0449\u0438\u0449\u0430\u0435\u0442 \u0446\u0435\u043f\u044c \u0430\u043d\u0442\u0438\u043a\u043e\u043d\u0434\u0435\u043d\u0441\u0430\u0442\u043d\u043e\u0433\u043e \u043e\u0431\u043e\u0433\u0440\u0435\u0432\u0430\u0442\u0435\u043b\u044f TR9-55X?"
+    },
+    {
+      "question_id": "q-neg-attribute-11-en",
+      "text": "Which gearbox oil grade is specified for the XP-400S?"
+    },
+    {
+      "question_id": "q-neg-attribute-14-en",
+      "text": "What is the mounting flange bolt torque for the CT4-25?"
+    },
+    {
+      "question_id": "q-neg-attribute-14-tr",
+      "text": "CT4-25 i\u00e7in ba\u011flant\u0131 flan\u015f\u0131 c\u0131vata torku nedir?"
+    }
+  ],
+  "withheld_breakdown": {
+    "abstained": 222,
+    "answered": 47,
+    "definition": "withheld = ABSTAIN or REVIEW; both present nothing to the technician",
+    "sent_to_review": 37,
+    "strict_abstention_rate": 0.7254901960784313
+  }
+}

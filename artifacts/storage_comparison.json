@@ -1,0 +1,128 @@
+{
+  "backends": {
+    "pgvector": {
+      "backend": "pgvector",
+      "filtering": "A SQL `WHERE` clause in the ranking statement. The planner may satisfy it with a btree index on the effectivity columns and never consult the vector index \u2014 the plan measured here did NOT name the HNSW index, so this column's latency is a filtered scan with a top-N sort rather than a graph traversal.",
+      "index": {
+        "ef_construction": 200,
+        "ef_search": "100",
+        "index_name": "ix_chunk_embedding_hnsw",
+        "iterative_scan": "strict_order",
+        "m": 16,
+        "method": "hnsw",
+        "opclass": "vector_cosine_ops",
+        "plan_indexes_named": [],
+        "plan_mentions_index": false
+      },
+      "max_ms": 404.242,
+      "mean_ms": 24.713,
+      "note": "PostgreSQL 16 with pgvector, the shipped retrieval path: `store.dense_search`, cosine distance `<=>`, effectivity as a SQL predicate in the same statement as the ordering.",
+      "p50_ms": 19.038,
+      "p95_ms": 50.844,
+      "queries_measured": 120,
+      "recall_at_10": 0.9833,
+      "round_trip_floor_ms": 1.058,
+      "round_trip_floor_note": "cheapest observed cost of the cheapest call this backend accepts, on this host, in this run. Subtract it from the percentiles above to see what the search itself cost. A lower bound on transport, not a typical one: it is sampled after the workload, so a busy host inflates the percentiles more than it inflates this."
+    },
+    "qdrant": {
+      "backend": "qdrant",
+      "filtering": "A payload filter evaluated against payload indexes while the vector index is searched. Qdrant calls this filtered search and it is not the naive rank-then-discard this project exists to avoid \u2014 but the graph is built over every point regardless of the filter, and below `full_scan_threshold` Qdrant abandons the graph and rescores the admitted set exactly, which at this filter selectivity is what it did. That is the substantive difference from PostgreSQL, where the predicate can change which index the planner uses at all.",
+      "index": {
+        "client_version": "1.19.1",
+        "defaults_read_from_server": {
+          "ef_construct": 100,
+          "full_scan_threshold_kb": 10000,
+          "indexing_threshold_kb": 10000,
+          "m": 16,
+          "read_from": "a throwaway collection created with no overrides and deleted again"
+        },
+        "distance": "cosine",
+        "ef_construct": 200,
+        "engine": "qdrant",
+        "hnsw_ef": 100,
+        "index_build_wait_seconds": 1.625,
+        "indexed_vectors": 12420,
+        "indexing_threshold_kb_override": 100,
+        "m": 16,
+        "points": 12420,
+        "server_version": "1.19.0"
+      },
+      "max_ms": 70.806,
+      "mean_ms": 24.826,
+      "note": "Qdrant 1.19.0 in a LOCAL container at http://127.0.0.1:16333, loaded from the vectors PostgreSQL already held. Not Qdrant Cloud, not a managed service, not over a network.",
+      "p50_ms": 22.455,
+      "p95_ms": 53.922,
+      "queries_measured": 120,
+      "recall_at_10": 0.9833,
+      "round_trip_floor_ms": 4.539,
+      "round_trip_floor_note": "cheapest observed cost of the cheapest call this backend accepts, on this host, in this run. Subtract it from the percentiles above to see what the search itself cost. A lower bound on transport, not a typical one: it is sampled after the workload, so a busy host inflates the percentiles more than it inflates this."
+    }
+  },
+  "corpus": {
+    "chunks_indexed": 12420,
+    "dimensions": 384,
+    "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "vectors_source": "read back out of the PostgreSQL `chunk.embedding` column and uploaded to Qdrant unchanged; nothing was re-encoded for the second backend, so the two engines differ by storage and by nothing else"
+  },
+  "cost": {
+    "formula": "monthly_cost = stored_gib * price_per_gib_month + queries_per_month * price_per_query; both prices are inputs a reader supplies from the vendor's current published list price.",
+    "monetary_estimate": null,
+    "price_per_gib_month": null,
+    "price_per_query": null,
+    "prices_read_on": null,
+    "what_was_measured": {
+      "postgres_chunk_table_total_bytes": 44163072,
+      "postgres_hnsw_index_bytes": 10280960,
+      "postgres_note": "`pg_total_relation_size('chunk')` covers the passage text, the identifier array and every index as well as the vectors, so it is not a vector-storage figure and must not be quoted as one.",
+      "raw_vector_bytes": 19077120,
+      "raw_vector_bytes_formula": "12420 vectors x 384 dims x 4 bytes",
+      "vectors": 12420
+    },
+    "why_no_number": "NO PRICE WAS READ AND NO BILL WAS MEASURED. No vendor price list was consulted during this build, so publishing a monetary figure would mean inventing the one input the arithmetic needs \u2014 the same defect as publishing an unmeasured latency, and a much harder one to catch. The quantities above are real and measured on this host; the formula is stated so a reader can finish the arithmetic against whatever the published list price is on the day they read it. Nothing here is an invoice, an estimate of one, or evidence about what either product costs."
+  },
+  "cost_basis": "published list price arithmetic, not a measured bill",
+  "deployment": "local container",
+  "findings": [
+    "Neither engine walked an approximate graph for these queries, and both decided that for themselves. PostgreSQL's planner prices a 384-dimension cosine distance at procost=1 and index-scanned the rows the effectivity filter admits; Qdrant kept its own `full_scan_threshold` default, which puts a filtered set of this size below the line at which it traverses the graph, so it rescored the admitted points exactly. A question naming its variant leaves around twenty of twelve thousand chunks, and an exact pass over twenty vectors is the right plan. The one Qdrant default this run overrides is `indexing_threshold`, lowered to 100 KB so that an HNSW graph is built at all; every default is published under `defaults_read_from_server`, read off this server rather than recalled. At a production corpus two orders of magnitude larger, neither engine would be taking the exact path and this table would be measuring something else.",
+    "The two filters are different mechanisms and the difference is the substantive result. In PostgreSQL the effectivity predicate and the distance ordering are one statement, so the predicate can change which index the planner uses at all. In Qdrant the predicate is a payload filter over a vector index built across every point; it is applied during the search rather than after it, but it cannot change what the vector index contains.",
+    "A like-for-like comparison required writing the effectivity rule a second time, in a second filter language. That is the duplication `store.effectivity` exists to prevent, and it is the real cost of a second backend in a system whose correctness lives in a predicate. `like_for_like` reports the measured agreement rather than asserting it.",
+    "Both backends are containers on one laptop. Nothing here measures a network, a managed service, a noisy neighbour, replication, or a failure mode of either product in production. Qdrant Cloud was not tested.",
+    "Neither p50 in this table is mostly search. The effectivity predicate admits a few dozen chunks for a question that names its variant, so both engines rank a set small enough to be microseconds of arithmetic, and what the percentiles measure is overwhelmingly the cost of crossing a container boundary on a Docker Desktop host. `round_trip_floor_ms` is published beside each column so the reader can subtract it rather than take a transport number for an index number.",
+    "The recall figures compare the two stores' DENSE retrieval only. They are not the project's headline recall: the shipped pipeline fuses a deterministic identifier lookup and a lexical stage with this one, and `evaluation.json` is where the number kill condition F is graded on lives."
+  ],
+  "like_for_like": {
+    "how_checked": "for every query in the workload the admitted chunk ids were enumerated from both engines and the sets compared \u2014 not the counts, the ids. The effectivity rule is written twice, once as SQL and once as a Qdrant payload filter, and `store.effectivity` is explicit that two implementations of one rule need evidence they are one rule.",
+    "mean_candidates_admitted_postgres": 21.45,
+    "mean_candidates_admitted_qdrant": 21.45,
+    "mean_top_10_overlap": 1.0,
+    "overlap_note": "share of each backend's top-10 that the other also returned, averaged over the workload. 1.0 is what both engines taking an exact pass over an identical candidate set should produce, and is therefore a check on this file rather than a result about either product. Below 1.0 is not a defect either: it is what an approximate index on one side or a different tie-break on the other looks like, and each backend's `filtering` field says which path it took.",
+    "queries_compared": 120,
+    "queries_disagreeing": [],
+    "queries_with_identical_candidate_sets": 120,
+    "same_effectivity_filter": true,
+    "same_query_vectors": true,
+    "same_vectors": true
+  },
+  "managed_cloud_note": "QDRANT CLOUD WAS NOT TESTED. No managed vector service was provisioned, no account was created, no credential was used and no request left this machine. Both backends are containers on one developer laptop, so the latency figures below contain no network and no multi-tenant contention, and neither of them is evidence about how either product behaves as a managed service. ADR-001 records this substitution deliberately: the blueprint says to delete the comparison rather than let it consume days, and a cloud account with its credentials and its network variance is exactly that risk.",
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "qdrant_cloud_tested": false,
+  "topology": "One ranking contract, two storage engines, both on this host: the project's pgvector column in the PostgreSQL container, and a Qdrant container loaded with the very same vectors read back out of that column. Same corpus, same query vectors, same effectivity predicate, same top-k.",
+  "workload": {
+    "k": 10,
+    "languages": [
+      "en",
+      "ru",
+      "tr"
+    ],
+    "questions": 120,
+    "selection": "the first answerable questions in corpus order, identical for both backends and reproducible across runs; questions with no supporting passage are excluded because recall is undefined for them",
+    "variant_constrained": 120
+  }
+}

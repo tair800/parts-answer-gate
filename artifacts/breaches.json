@@ -1,0 +1,118 @@
+{
+  "planted": 10,
+  "caught": 10,
+  "uncaught": [],
+  "method": "each breach replaces a function the running system calls and each detector observes a behaviour, never source text",
+  "breaches": [
+    {
+      "name": "effectivity_bypass",
+      "guarantee": "ADR-001 A: an as-of query never returns a superseded chunk",
+      "mechanism": "candidate_filter replaced by one that builds the predicate with the effectivity clauses omitted",
+      "detector": "the withdrawn chunk's membership of the candidate set",
+      "baseline": "withdrawn chunk admitted: False",
+      "breached": "withdrawn chunk admitted: True",
+      "baseline_value": false,
+      "breached_value": true,
+      "caught": true
+    },
+    {
+      "name": "wrong_variant",
+      "guarantee": "ADR-001 B: an as-of query never returns another variant's chunk",
+      "mechanism": "the variant and serial terms removed from the candidate predicate",
+      "detector": "count of returned chunks belonging to a variant other than the one asked",
+      "baseline": "0 foreign-variant chunks",
+      "breached": "288 foreign-variant chunks",
+      "baseline_value": 0,
+      "breached_value": 288,
+      "caught": true
+    },
+    {
+      "name": "stale_revision_off_by_one",
+      "guarantee": "the validity interval is half-open, so a withdrawal date belongs to one revision",
+      "mechanism": "`:as_of < valid_to` changed to `:as_of <= valid_to`",
+      "detector": "distinct revisions admitted on the exact day of a withdrawal",
+      "baseline": "1 revision(s) on the boundary date",
+      "breached": "2 revision(s) on the boundary date",
+      "baseline_value": 1,
+      "breached_value": 2,
+      "caught": true
+    },
+    {
+      "name": "bitemporal_knowledge_time",
+      "guarantee": "a later correction does not rewrite the answer to a historical knowledge query",
+      "mechanism": "the knowledge-time predicate replaced by TRUE",
+      "detector": "whether a correction issued after the asked knowledge date became a candidate",
+      "baseline": "correction visible at an earlier knowledge date: False",
+      "breached": "correction visible at an earlier knowledge date: True",
+      "baseline_value": false,
+      "breached_value": true,
+      "caught": true
+    },
+    {
+      "name": "pgvector_bypass",
+      "guarantee": "ADR-001 K: vector retrieval executes inside PostgreSQL",
+      "mechanism": "the pgvector distance ranking replaced by an in-process sort over the same filtered candidates, which returns a near-identical ranking",
+      "detector": "the executed query plan, read back from PostgreSQL",
+      "baseline": "real query plan accepted: True",
+      "breached": "breach plan accepted: False",
+      "baseline_value": true,
+      "breached_value": false,
+      "caught": true
+    },
+    {
+      "name": "unsupported_answer",
+      "guarantee": "ADR-001 E: the gate never answers a question the corpus cannot support",
+      "mechanism": "gate.decide replaced by one that returns ANSWER whatever the rules concluded",
+      "detector": "the outcome for a question naming a product that is not in the corpus",
+      "baseline": "answered: False",
+      "breached": "answered: True",
+      "baseline_value": false,
+      "breached_value": true,
+      "caught": true
+    },
+    {
+      "name": "wrong_citation",
+      "guarantee": "ADR-001 D: every cited span appears in the document it is attributed to",
+      "mechanism": "the citation's quote replaced by text absent from the source document, with its offsets left untouched",
+      "detector": "verify_citation, which locates the span in the source by offset",
+      "baseline": "honest citation verified: True",
+      "breached": "tampered citation verified: False",
+      "baseline_value": true,
+      "breached_value": false,
+      "caught": true
+    },
+    {
+      "name": "missing_disclosure",
+      "guarantee": "Article 50: every response carries a machine-generated disclosure",
+      "mechanism": "an Answer constructed with an empty ai_disclosure",
+      "detector": "the Answer model's own validation",
+      "baseline": "disclosure present by default: True",
+      "breached": "construction refused with ValidationError",
+      "baseline_value": true,
+      "breached_value": false,
+      "caught": true
+    },
+    {
+      "name": "incremental_index_skip",
+      "guarantee": "changed chunks are re-embedded; unchanged chunks are not",
+      "mechanism": "loader._needs_embedding replaced by one that always answers False, so a chunk whose text changed is never re-embedded",
+      "detector": "measure_index_lifecycle's count of chunks the loader actually re-embedded after their text was changed",
+      "baseline": "8 of 8 changed chunks re-embedded",
+      "breached": "0 of 8 changed chunks re-embedded",
+      "baseline_value": 8,
+      "breached_value": 0,
+      "caught": true
+    },
+    {
+      "name": "split_leak",
+      "guarantee": "ADR-001 L: no document appears in both splits",
+      "mechanism": "one hold-out question relabelled as development while still citing its hold-out evidence",
+      "detector": "the partition check, resolving question -> chunk -> document -> family",
+      "baseline": "0 leaked documents",
+      "breached": "1 leaked documents",
+      "baseline_value": 0,
+      "breached_value": 1,
+      "caught": true
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "ablated_fix": {
+    "measured_effect": "recall@10 change per language when the fix is enabled: {'en': 0.0, 'ru': 0.0, 'tr': 0.0}",
+    "name": "multilingual encoder shared across all three languages",
+    "what_it_ablates": "the alternative is a per-language lexical index with no cross-lingual vector signal, which is what the ablated arm measures"
+  },
+  "by_language": {
+    "en": {
+      "abstention_rate": 0.21153846153846154,
+      "answer_correctness": 1.0,
+      "coverage": 0.7596153846153846,
+      "end_to_end_correctness": 0.7596153846153846,
+      "questions": 104,
+      "retrieval_recall_at_10": 0.9444444444444444
+    },
+    "ru": {
+      "abstention_rate": 0.3557692307692308,
+      "answer_correctness": 1.0,
+      "coverage": 0.6153846153846154,
+      "end_to_end_correctness": 0.6153846153846154,
+      "questions": 104,
+      "retrieval_recall_at_10": 0.9444444444444444
+    },
+    "tr": {
+      "abstention_rate": 0.28846153846153844,
+      "answer_correctness": 0.9859154929577465,
+      "coverage": 0.6826923076923077,
+      "end_to_end_correctness": 0.6730769230769231,
+      "questions": 104,
+      "retrieval_recall_at_10": 0.8888888888888888
+    }
+  },
+  "corpus_is_synthetic_parallel_text": true,
+  "judge_calibration": {
+    "performed": false,
+    "why": "no native speaker of Turkish or Russian reviewed this corpus. The scores above are computed against construction metadata \u2014 the generator knows which passage supports which question because it wrote both \u2014 so they measure retrieval and gating over synthetic parallel text. They do not establish that the Turkish reads like Turkish, and no LLM judge was used, so there is no judge to calibrate."
+  },
+  "languages": [
+    "en",
+    "ru",
+    "tr"
+  ],
+  "provenance": {
+    "commit": "0d55d2568f1ddcd5cd2462cd23be9e509a3bc6a7",
+    "corpus_is_synthetic": true,
+    "holdout_digest": "9f04efb02a18b501b8a4379ea3c4c3eb186afb9d2b42ebb670d8aae316f40d1c",
+    "holdout_questions": 312,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  }
+}

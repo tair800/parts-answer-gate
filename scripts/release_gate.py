@@ -2,8 +2,8 @@
 
     python scripts/release_gate.py
 
-**The original release gate FAILED.** Three of ADR-001's twelve kill conditions do not hold, a
-fourth passes for a reason that makes the pass worthless, and this project is closed as a
+**The original release gate FAILED.** Four of ADR-001's twelve kill conditions do not hold and a
+fifth passes for a reason that makes the pass nearly worthless, and this project is closed as a
 pre-registered negative result rather than as a shipped system.
 
 That fact creates a problem this script exists to solve, and the problem is not cosmetic. If the
@@ -13,9 +13,9 @@ disclosed failure. But the obvious alternative is worse: marking the three failu
 deleting them converts a failed criterion into an accepted pass, which is the single thing ADR-001
 forbids and the whole reason this project is interesting.
 
-So neither. The failures are **pinned**. `DISCLOSED_FAILURES` below records exactly which conditions
-fail and why, and this script exits non-zero whenever reality diverges from that record in *either*
-direction:
+So neither. The failures are **pinned**. `DISCLOSED_FAILURES` below records exactly which
+conditions fail and why, and this script exits non-zero whenever reality diverges from that
+record in *either* direction:
 
 - a condition that was passing starts failing — a genuine regression, and the build goes red;
 - a condition recorded as failing starts passing — which is good news, and still fails the build,
@@ -49,29 +49,41 @@ ARTIFACTS = REPO_ROOT / "artifacts"
 #: disclosed failure cannot be mistaken for one another. Argued in full in DECISIONS.md ADR-003.
 DISCLOSED_FAILURES: dict[str, str] = {
     "E": (
-        "the gate answers a small number of unsupportable questions, every one of them Turkish or "
-        "Russian, through the bidirectional prefix match gate.term_is_covered uses in place of a "
-        "stemmer"
+        "the gate answers 47 of 306 unsupportable questions. The weakness is concentrated: it "
+        "refuses 44 of 45 questions about a product family that does not exist, and only 17 of 45 "
+        "where the product exists and the attribute does not"
     ),
     "F": (
         "the ungated_rag baseline removes only the gate and so runs the identical retriever, "
         "making 'above every baseline' on a retrieval metric impossible rather than hard; and "
-        "recall@10 is the wrong measure of what effectivity filtering buys"
+        "recall@10 is the wrong measure of what effectivity filtering buys, because removing the "
+        "predicate enlarges the candidate pool"
     ),
-    "H": (
-        "the ungated > 0 clause cannot hold: the effectivity filter runs upstream of the gate "
-        "and already makes revision- and variant-incorrectness impossible, so the ungated "
-        "arm's rate is zero by construction rather than by merit"
+    "I": (
+        "abstention on the unanswerable set is 0.8464 against a floor of 0.90. Same mechanism as "
+        "E: gate.term_is_covered approximates stemming with a bidirectional prefix match and errs "
+        "towards covering, and attribute_absent_for_existing_product is where it costs most"
+    ),
+    "K": (
+        "the query plan does not mention a vector index. pgvector 0.8.6 is installed, the column "
+        "is a real `vector`, and the executed statement uses `<=>` -- but the effectivity filter "
+        "has already reduced the candidate set to 21 rows, for which PostgreSQL correctly prefers "
+        "a sequential scan: forcing the ANN plan measures 29.2ms against the planner's 3.1ms. The "
+        "criterion asked for an index scan on a query that should not have one"
     ),
 }
 
-#: Conditions that pass, where the pass does not mean what it appears to. Recorded here because a
-#: verdict table that printed only PASS would be true and misleading at the same time.
+#: Conditions that pass, where the pass means less than it appears to. Recorded because a verdict
+#: table printing only PASS would be true and misleading at once.
 VACUOUS_PASSES: dict[str, str] = {
     "G": (
-        "the numerator is empty by construction. No answer this system can give is capable of "
-        "being revision- or variant-incorrect, because the effectivity predicate excludes both "
-        "upstream of the gate, so G cannot distinguish this system from a broken one"
+        "near-vacuous. For the 297 hold-out questions that name a variant -- 297 of 312 -- the "
+        "numerator is empty by construction: the effectivity predicate excludes revision- and "
+        "variant-incorrect passages upstream of the gate, so no answer the system can give for "
+        "those is capable of being wrong in either sense. The measured 0.0047 comes entirely from "
+        "the 15 questions about a product family the corpus does not contain, where the filter has "
+        "nothing to constrain. G measures the gate only on the class of question the filter cannot "
+        "help with"
     ),
 }
 
