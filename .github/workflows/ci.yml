@@ -92,7 +92,11 @@ jobs:
         # pgvector/pgvector, not postgres. Kill condition K asserts the extension participates in
         # retrieval, and a plain image would make that assertion unrunnable — which is worse than
         # failing it, because the lane would go green.
-        image: pgvector/pgvector:pg16
+        # Pinned, by digest, to the image the committed evidence was measured on (pgvector 0.8.6,
+        # PostgreSQL 16). `pgvector.json` records the extension version the database reports and the
+        # README quotes it, so a floating tag turns an upstream release into a failed build with no
+        # change here: `pg16` moved to 0.8.7 on 2026-10-01. Every service below uses the same pin.
+        image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
         env:
           POSTGRES_USER: parts
           POSTGRES_PASSWORD: ci_only_not_a_secret
@@ -200,7 +204,7 @@ jobs:
     timeout-minutes: 45
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
         env:
           POSTGRES_USER: parts
           POSTGRES_PASSWORD: ci_only_not_a_secret
@@ -260,7 +264,7 @@ jobs:
     timeout-minutes: 60
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
         env:
           POSTGRES_USER: parts
           POSTGRES_PASSWORD: ci_only_not_a_secret
@@ -323,7 +327,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
         env:
           POSTGRES_USER: parts
           POSTGRES_PASSWORD: ci_only_not_a_secret

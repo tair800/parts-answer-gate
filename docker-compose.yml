@@ -1,9 +1,12 @@
 # Local PostgreSQL for parts-answer-gate.
 #
-# `pgvector/pgvector:pg16` rather than `postgres:16` plus a build step: ADR-001 kill condition K says
+# `pgvector/pgvector` rather than `postgres:16` plus a build step: ADR-001 kill condition K says
 # vector retrieval must provably execute inside the database, so the extension has to be present in
 # the image the developer and CI both run. A compose file that needs a manual `CREATE EXTENSION`
 # against a stock image is a file that works until somebody starts from scratch.
+#
+# Pinned by digest to pgvector 0.8.6 on PostgreSQL 16, the image the committed evidence was
+# measured on and CI runs: `pgvector.json` records the extension version and the README quotes it.
 #
 # Port 15440 is this project's alone. 15432/15433/15434/15437 already belong to other repositories in
 # the same workspace, and a developer running two of them at once must not have to stop one first.
@@ -11,7 +14,7 @@
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
     container_name: parts-answer-gate-postgres
     environment:
       POSTGRES_USER: ${PAG_POSTGRES_USER:-pag}

@@ -4,11 +4,11 @@
 
 Writes `artifacts/live_pgvector.json`.
 
-`artifacts/pgvector.json` is measured against the local `pgvector/pgvector:pg16` container, which is
-the right place to grade kill condition K because it is the configuration CI can reproduce. It says
-nothing about the database the public deployment actually queries. A deployment can look identical
-from the outside while serving from a float array in a text column, a different extension version,
-or no vector index at all, and the visitor would never know.
+`artifacts/pgvector.json` is measured against the local `pgvector/pgvector:0.8.6-pg16` container,
+which is the right place to grade kill condition K because it is the configuration CI can reproduce.
+It says nothing about the database the public deployment actually queries. A deployment can look
+identical from the outside while serving from a float array in a text column, a different extension
+version, or no vector index at all, and the visitor would never know.
 
 So this asks the server. Every fact below is read out of `pg_catalog` or out of the planner's own
 output for the statement the retrieval path issues — not out of a migration file that was supposed
