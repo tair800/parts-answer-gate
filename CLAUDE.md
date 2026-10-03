@@ -309,7 +309,8 @@ make evidence    the full chain, and what CI runs
 - **Docker**, two stages. The build stage has `uv` and a compiler; the runtime stage has neither.
   The embedding model (~220MB of ONNX) is baked in at build time so a cold start does not depend on
   a model host. Runs as a non-root system user with no home and no shell.
-- `docker-compose.yml` for local infrastructure: `pgvector/pgvector:pg16` on
+- `docker-compose.yml` for local infrastructure: `pgvector/pgvector:0.8.6-pg16` (pinned by
+  digest, the same image as CI) on
   `127.0.0.1:15440` and `qdrant/qdrant:v1.19.0` on `127.0.0.1:16333`/`16334`. Both bound to
   loopback. Postgres is tuned (`shared_buffers`, `maintenance_work_mem`, `work_mem`) so an HNSW
   build does not spill and kill condition K does not become a question about container defaults.
@@ -363,8 +364,8 @@ make evidence    the full chain, and what CI runs
 ## 7. Current integrations
 
 - **PostgreSQL 16 + pgvector** — the primary store and the vector index. Required. Locally the
-  `pgvector/pgvector:pg16` container; in the public deployment a free **Neon** PostgreSQL 16.15 with
-  pgvector 0.8.0 in `eu-central-1`, reached on the direct endpoint. `store/engine.py ::
+  `pgvector/pgvector:0.8.6-pg16` container; in the public deployment a free **Neon** PostgreSQL 16.15
+  with pgvector 0.8.0 in `eu-central-1`, reached on the direct endpoint. `store/engine.py ::
   normalise_database_url` coerces the `postgres://` and `postgresql://` shapes managed providers
   hand out to `postgresql+psycopg://` and preserves the query string, `sslmode=require` included.
 - **Qdrant, local container** — the second backend behind the same storage port, for
