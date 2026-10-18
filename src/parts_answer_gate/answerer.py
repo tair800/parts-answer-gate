@@ -161,9 +161,13 @@ class ExtractiveAnswerer:
         text: str | None = None
         if decision.outcome is GateOutcome.ANSWER:
             if not citations:
+                approved_ids = sorted(
+                    retrieved.chunk.chunk_id for retrieved in decision.approved_chunks
+                )
                 raise EmptyEvidenceError(
                     f"the gate approved {len(decision.approved_chunks)} chunk(s) for "
-                    f"{query.text!r} but none contained quotable text"
+                    f"{query.text!r} but none contained quotable text; approved chunk ids: "
+                    f"{approved_ids}"
                 )
             text = ANSWER_SEPARATOR.join(citation.quote for citation in citations)
         # A review keeps its citations and gains no text: the passages that disagree are exactly
