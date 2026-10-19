@@ -63,6 +63,7 @@
       </label>
       <label class="muted" style="align-self:center">valid at
         <input type="date" name="as_of" value="{{ (asked.as_of if asked else default_as_of) }}"
+               aria-label="What was true of the machine on this date."
                title="What was true of the machine on this date.">
       </label>
       {# The second bitemporal axis, and it has to be reachable from the interface or nobody can
@@ -72,6 +73,7 @@
       <label class="muted" style="align-self:center">known at
         <input type="date" name="known_as_of"
                value="{{ asked.known_as_of if asked and asked.known_as_of else '' }}"
+               aria-label="What we knew on this date. Leave blank for what we know now."
                title="What we knew on this date. Leave blank for what we know now.">
       </label>
       <label class="muted" style="align-self:center">language
