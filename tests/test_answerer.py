@@ -218,6 +218,19 @@ def test_an_answer_with_the_disclosure_blanked_is_refused() -> None:
 # ------------------------------------------------------------------ the post-validator itself
 
 
+def test_a_grounded_disclosed_answer_passes_through_unchanged() -> None:
+    decision = answering_decision()
+    answer = ExtractiveAnswerer().answer(ask(), decision, REVISIONS)
+    assert answer.grounded is True
+    assert answer.citations
+
+    validated = post_validate(answer)
+
+    assert validated is answer
+    assert validated.text == answer.text
+    assert validated.citations == answer.citations
+
+
 def test_an_invented_part_number_is_rejected() -> None:
     decision = answering_decision()
     honest = ExtractiveAnswerer().answer(ask(), decision, REVISIONS)
