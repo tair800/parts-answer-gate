@@ -73,10 +73,10 @@
       {% for wrong in ev.holdout.answering.wrong_examples %}
       <tr>
         <td class="mono">{{ wrong.question_id }}</td>
-        <td class="mono">{{ wrong.asked_variant if wrong.asked_variant is defined else "—" }}
+        <td class="mono">{% if wrong.asked_variant is defined and not wrong.asked_variant %}<span class="muted">product family not in the corpus</span>{% else %}{{ wrong.asked_variant if wrong.asked_variant is defined else "—" }}{% endif %}
           {% if wrong.as_of is defined %}<span class="muted">as of {{ wrong.as_of }}</span>{% endif %}
         </td>
-        <td class="mono">{{ wrong.cited if wrong.cited is defined else "—" }}</td>
+        <td class="mono">{% if wrong.cited is string %}{{ wrong.cited }}{% elif wrong.cited %}{{ wrong.cited | join(", ") }}{% else %}—{% endif %}</td>
         <td>{{ wrong.reason if wrong.reason is defined else "—" }}</td>
       </tr>
       {% endfor %}
