@@ -13,6 +13,7 @@ test exists: the next person to paste a connection string should not have to red
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.pool import NullPool
 
 from parts_answer_gate.store.engine import build_engine, normalise_database_url
 
@@ -50,3 +51,29 @@ def test_build_engine_accepts_every_provider_shape(given: str, _expected: str) -
     """
     engine = build_engine(given)
     assert engine.dialect.driver == "psycopg"
+
+
+def test_a_url_gets_the_same_engine_on_later_calls() -> None:
+    """The API asks for its engine where each request opens its session. A new engine there is a
+    new pool, so a connection returned by a request would never be handed to the next request."""
+    url = "postgresql+psycopg://u:p@host/shared"
+    assert build_engine(url) is build_engine(url)
+
+
+def test_provider_shapes_of_the_same_database_share_its_engine() -> None:
+    """The engine is keyed by the URL after normalisation, so the shape a provider hands out and the
+    explicit driver reach the same pool."""
+    assert build_engine("postgres://u:p@host/same") is build_engine(
+        "postgresql+psycopg://u:p@host/same"
+    )
+
+
+def test_engine_options_get_an_engine_of_their_own() -> None:
+    """A caller that passes `poolclass=NullPool` disposes what it gets back: that engine must never
+    be the shared engine, nor be handed to a later caller."""
+    url = "postgresql+psycopg://u:p@host/options"
+    shared = build_engine(url)
+    unpooled = build_engine(url, poolclass=NullPool)
+    assert unpooled is not shared
+    assert build_engine(url, poolclass=NullPool) is not unpooled
+    assert build_engine(url) is shared
