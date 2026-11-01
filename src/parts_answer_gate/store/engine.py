@@ -11,6 +11,7 @@ survives" a real plan rather than a description.
 
 from __future__ import annotations
 
+import functools
 import os
 import time
 from collections.abc import Iterator
@@ -84,8 +85,31 @@ def database_url() -> str:
 
 
 def build_engine(url: str | None = None, *, echo: bool = False, **kwargs: Any) -> Engine:
+    """The engine for `url`, built on first use and reused by later calls in this process.
+
+    A call with engine options (`poolclass=NullPool`, for instance) gets a new engine of its own,
+    which the caller owns and disposes.
+    """
+    resolved = normalise_database_url(url) if url else database_url()
+    if kwargs:
+        return _new_engine(resolved, echo=echo, **kwargs)
+    return _shared_engine(resolved, echo)
+
+
+@functools.cache
+def _shared_engine(url: str, echo: bool) -> Engine:
+    """The engine for each database URL, reused for the life of the process.
+
+    The API asks for its engine where each request opens its session. Building a new engine there
+    gave each request a pool of its own, so a connection was never reused, and the pools left
+    behind held their connections until garbage collection.
+    """
+    return _new_engine(url, echo=echo)
+
+
+def _new_engine(url: str, *, echo: bool, **kwargs: Any) -> Engine:
     engine = create_engine(
-        normalise_database_url(url) if url else database_url(),
+        url,
         echo=echo,
         # Retrieval opens a session per request and holds it for milliseconds; a pool that recycles
         # rather than reconnects is the difference between 1ms and 30ms of connect time per query,
