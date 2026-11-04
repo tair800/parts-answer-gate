@@ -15,7 +15,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.pool import NullPool
 
-from parts_answer_gate.store.engine import build_engine, normalise_database_url
+from parts_answer_gate.store.engine import SESSION_SETTINGS, build_engine, normalise_database_url
 
 PROVIDER_URLS = [
     # Render's fromDatabase / the Heroku convention.
@@ -77,3 +77,75 @@ def test_engine_options_get_an_engine_of_their_own() -> None:
     assert unpooled is not shared
     assert build_engine(url, poolclass=NullPool) is not unpooled
     assert build_engine(url) is shared
+
+
+class _Connection:
+    """A DBAPI connection reduced to the behaviour the session settings depend on.
+
+    psycopg opens a transaction for the first statement on a connection that is not in autocommit
+    mode and refuses to change autocommit inside one, and PostgreSQL undoes a `SET` made inside a
+    transaction when that transaction rolls back.
+    """
+
+    def __init__(self) -> None:
+        self._autocommit = False
+        self.settings: dict[str, str] = {}
+        self._before_transaction: dict[str, str] | None = None
+
+    @property
+    def autocommit(self) -> bool:
+        return self._autocommit
+
+    @autocommit.setter
+    def autocommit(self, value: bool) -> None:
+        if self._before_transaction is not None:
+            raise RuntimeError("cannot change autocommit inside a transaction")
+        self._autocommit = value
+
+    def cursor(self) -> _Cursor:
+        return _Cursor(self)
+
+    def execute(self, statement: str) -> None:
+        if not self._autocommit and self._before_transaction is None:
+            self._before_transaction = dict(self.settings)
+        name, _, value = statement.removeprefix("SET ").partition(" = ")
+        self.settings[name] = value
+
+    def rollback(self) -> None:
+        if self._before_transaction is not None:
+            self.settings, self._before_transaction = self._before_transaction, None
+
+
+class _Cursor:
+    def __init__(self, connection: _Connection) -> None:
+        self._connection = connection
+
+    def __enter__(self) -> _Cursor:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def execute(self, statement: str) -> None:
+        self._connection.execute(statement)
+
+
+def test_session_settings_survive_a_rollback_of_the_first_transaction() -> None:
+    """A new connection's first transaction belongs to whoever uses it first. It is rolled back
+    when `wait_for_database` hands the connection back, and `session_scope` rolls it back when its
+    caller raises. Settings made inside that transaction went with it, and the pool kept a
+    connection that searched at pgvector's defaults rather than at `SESSION_SETTINGS`."""
+    engine = build_engine("postgresql+psycopg://host/session-settings")
+    on_connect = [
+        listener
+        for listener in engine.pool.dispatch.connect
+        if listener.__module__ == build_engine.__module__
+    ]
+    assert len(on_connect) == 1
+    connection = _Connection()
+
+    on_connect[0](connection, None)
+    connection.rollback()
+
+    assert connection.settings == SESSION_SETTINGS
+    assert connection.autocommit is False
