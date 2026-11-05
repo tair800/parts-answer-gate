@@ -15,7 +15,7 @@ import functools
 import os
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import Any, Final
 
 from sqlalchemy import Engine, create_engine, event, text
@@ -140,11 +140,19 @@ def _configure_session(engine: Engine) -> None:
     def _set_guc(dbapi_connection: Any, _record: Any) -> None:
         autocommit = dbapi_connection.autocommit
         dbapi_connection.autocommit = True
-        with dbapi_connection.cursor() as cursor:
-            for name, value in SESSION_SETTINGS.items():
-                # Identifiers cannot be bound parameters, and these come from a module constant, not
-                # from a caller.
-                cursor.execute(f"SET {name} = {value}")
+        try:
+            with dbapi_connection.cursor() as cursor:
+                for name, value in SESSION_SETTINGS.items():
+                    # Identifiers cannot be bound parameters, and these come from a module
+                    # constant, not from a caller.
+                    cursor.execute(f"SET {name} = {value}")
+        except BaseException:
+            # Put the mode back where the connection still allows it, but never in place of the
+            # error that stopped the SETs: on a connection the server has dropped, the attempt
+            # raises too and would hide the real cause.
+            with suppress(Exception):
+                dbapi_connection.autocommit = autocommit
+            raise
         dbapi_connection.autocommit = autocommit
 
 
