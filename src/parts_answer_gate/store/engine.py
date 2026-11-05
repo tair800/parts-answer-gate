@@ -15,7 +15,7 @@ import functools
 import os
 import time
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import Any, Final
 
 from sqlalchemy import Engine, create_engine, event, text
@@ -128,15 +128,32 @@ def _configure_session(engine: Engine) -> None:
     On connect rather than per query: a `SET LOCAL` inside the retrieval path would have to be
     repeated by every caller, including the diagnostic that runs `EXPLAIN`, and a plan explained
     under different settings than the query executes under is not evidence of anything.
+
+    In autocommit, so outside any transaction. PostgreSQL undoes a `SET` made inside a transaction
+    that rolls back, and a new connection's first transaction belongs to whoever uses it first: it
+    is rolled back when `wait_for_database` hands the connection back, and `session_scope` rolls it
+    back when its caller raises. Made inside that transaction, the settings would go with it, and
+    the pool would keep the connection searching at pgvector's defaults for the rest of its life.
     """
 
     @event.listens_for(engine, "connect")
     def _set_guc(dbapi_connection: Any, _record: Any) -> None:
-        with dbapi_connection.cursor() as cursor:
-            for name, value in SESSION_SETTINGS.items():
-                # Identifiers cannot be bound parameters, and these come from a module constant, not
-                # from a caller.
-                cursor.execute(f"SET {name} = {value}")
+        autocommit = dbapi_connection.autocommit
+        dbapi_connection.autocommit = True
+        try:
+            with dbapi_connection.cursor() as cursor:
+                for name, value in SESSION_SETTINGS.items():
+                    # Identifiers cannot be bound parameters, and these come from a module
+                    # constant, not from a caller.
+                    cursor.execute(f"SET {name} = {value}")
+        except BaseException:
+            # Put the mode back where the connection still allows it, but never in place of the
+            # error that stopped the SETs: on a connection the server has dropped, the attempt
+            # raises too and would hide the real cause.
+            with suppress(Exception):
+                dbapi_connection.autocommit = autocommit
+            raise
+        dbapi_connection.autocommit = autocommit
 
 
 def wait_for_database(engine: Engine, *, timeout_seconds: float = 60.0) -> float:

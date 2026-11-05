@@ -12,10 +12,12 @@ test exists: the next person to paste a connection string should not have to red
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from sqlalchemy.pool import NullPool
 
-from parts_answer_gate.store.engine import build_engine, normalise_database_url
+from parts_answer_gate.store.engine import SESSION_SETTINGS, build_engine, normalise_database_url
 
 PROVIDER_URLS = [
     # Render's fromDatabase / the Heroku convention.
@@ -77,3 +79,119 @@ def test_engine_options_get_an_engine_of_their_own() -> None:
     assert unpooled is not shared
     assert build_engine(url, poolclass=NullPool) is not unpooled
     assert build_engine(url) is shared
+
+
+class _RefusedError(Exception):
+    """The server refused a `SET`; the connection itself is still usable."""
+
+
+class _DroppedError(Exception):
+    """The server dropped the connection; every later operation on it raises too."""
+
+
+class _Connection:
+    """A DBAPI connection reduced to the behaviour the session settings depend on.
+
+    psycopg opens a transaction for the first statement on a connection that is not in autocommit
+    mode and refuses to change autocommit inside one, and PostgreSQL undoes a `SET` made inside a
+    transaction when that transaction rolls back. `refuse` names a setting the server rejects;
+    `drop_on` names one whose `SET` finds the connection dropped, after which changing autocommit
+    raises as well, as psycopg does on a lost connection.
+    """
+
+    def __init__(self, *, refuse: str | None = None, drop_on: str | None = None) -> None:
+        self._autocommit = False
+        self.settings: dict[str, str] = {}
+        self._before_transaction: dict[str, str] | None = None
+        self._refuse = refuse
+        self._drop_on = drop_on
+        self._dropped = False
+
+    @property
+    def autocommit(self) -> bool:
+        return self._autocommit
+
+    @autocommit.setter
+    def autocommit(self, value: bool) -> None:
+        if self._dropped:
+            raise _DroppedError("the connection is lost")
+        if self._before_transaction is not None:
+            raise RuntimeError("cannot change autocommit inside a transaction")
+        self._autocommit = value
+
+    def cursor(self) -> _Cursor:
+        return _Cursor(self)
+
+    def execute(self, statement: str) -> None:
+        if not self._autocommit and self._before_transaction is None:
+            self._before_transaction = dict(self.settings)
+        name, _, value = statement.removeprefix("SET ").partition(" = ")
+        if name == self._drop_on:
+            self._dropped = True
+            raise _DroppedError("terminating connection due to administrator command")
+        if name == self._refuse:
+            raise _RefusedError(f"invalid value for parameter {name}")
+        self.settings[name] = value
+
+    def rollback(self) -> None:
+        if self._before_transaction is not None:
+            self.settings, self._before_transaction = self._before_transaction, None
+
+
+class _Cursor:
+    def __init__(self, connection: _Connection) -> None:
+        self._connection = connection
+
+    def __enter__(self) -> _Cursor:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def execute(self, statement: str) -> None:
+        self._connection.execute(statement)
+
+
+def _session_listener() -> Callable[[_Connection, None], None]:
+    """The `connect` listener `build_engine` registers for the session settings."""
+    engine = build_engine("postgresql+psycopg://host/session-settings")
+    on_connect = [
+        listener
+        for listener in engine.pool.dispatch.connect
+        if listener.__module__ == build_engine.__module__
+    ]
+    assert len(on_connect) == 1
+    return on_connect[0]
+
+
+def test_session_settings_survive_a_rollback_of_the_first_transaction() -> None:
+    """A new connection's first transaction belongs to whoever uses it first. It is rolled back
+    when `wait_for_database` hands the connection back, and `session_scope` rolls it back when its
+    caller raises. Settings made inside that transaction went with it, and the pool kept a
+    connection that searched at pgvector's defaults rather than at `SESSION_SETTINGS`."""
+    connection = _Connection()
+
+    _session_listener()(connection, None)
+    connection.rollback()
+
+    assert connection.settings == SESSION_SETTINGS
+    assert connection.autocommit is False
+
+
+def test_a_refused_setting_raises_and_puts_the_mode_back() -> None:
+    """A `SET` the server refuses reaches the caller, and the connection leaves autocommit again."""
+    connection = _Connection(refuse="hnsw.iterative_scan")
+
+    with pytest.raises(_RefusedError, match=r"hnsw\.iterative_scan"):
+        _session_listener()(connection, None)
+
+    assert connection.autocommit is False
+
+
+def test_a_dropped_connection_raises_the_server_error_not_the_restore() -> None:
+    """Putting the mode back on a connection the server has dropped raises too. The error that
+    reaches the caller has to be the server's, which says why, not that second one."""
+    connection = _Connection(drop_on="hnsw.ef_search")
+
+    with pytest.raises(_DroppedError, match="administrator command"):
+        _session_listener()(connection, None)
