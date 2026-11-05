@@ -100,7 +100,7 @@
 {% if answer %}
 {% set outcome = answer.decision.outcome.value %}
 <section class="panel verdict {{ outcome }}" role="status">
-  <div class="big {{ outcome }}">{{ outcome|upper }}</div>
+  <h2 class="big {{ outcome }}">{{ outcome|upper }}</h2>
   <p style="margin:6px 0 0; max-width:74ch">{{ answer.decision.reason }}</p>
 
   {% if answer.text %}
