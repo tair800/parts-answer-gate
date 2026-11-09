@@ -125,6 +125,20 @@ cannot rebuild an index.">read-only</span>
   </div>
   {% elif gate_report and gate_report.release_gate == "PASSED" %}
   <div class="gate-banner ok"><strong>ORIGINAL RELEASE GATE: PASSED</strong></div>
+  {% elif gate_report %}
+  {#
+    The verdict file is absent, unreadable, or not the shape this console understands. Say so in
+    the same alarm styling as a failure, never the `ok` styling: a verdict this console cannot
+    read is unknown, and an unknown verdict must not be allowed to look like a pass.
+  #}
+  <div class="gate-banner">
+    <strong>ORIGINAL RELEASE GATE: {{ gate_report.release_gate }}</strong>
+    <span>
+      This instance cannot read <code>artifacts/release_gate.json</code>, so it cannot show the
+      predeclared verdict. Treat the verdict as unknown, not as a pass.
+      <a href="/evidence">See the evidence screen</a>.
+    </span>
+  </div>
   {% endif %}
   <main>{% block content %}{% endblock %}</main>
   <footer>
