@@ -19,6 +19,7 @@ question the gate refused, which is the property kill condition E turns on.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Iterator
 from datetime import UTC, date, datetime
@@ -173,6 +174,19 @@ def _artifacts(config: Settings) -> dict[str, Any]:
     return loaded
 
 
+_LOG = logging.getLogger(__name__)
+#: Verdict states already reported, so a console under traffic logs each one once per process
+#: rather than on every request.
+_GATE_STATES_WARNED: set[str] = set()
+
+
+def _warn_gate_unavailable(state: str, path: Path) -> None:
+    """Record, once per state, that the console could not read the predeclared verdict."""
+    if state not in _GATE_STATES_WARNED:
+        _GATE_STATES_WARNED.add(state)
+        _LOG.warning("release gate verdict unavailable (%s): %s", state, path)
+
+
 def _release_gate(config: Settings) -> dict[str, Any]:
     """The release-gate verdict, read from `artifacts/release_gate.json`.
 
@@ -187,10 +201,18 @@ def _release_gate(config: Settings) -> dict[str, Any]:
     """
     path = Path(config.artifacts_dir) / "release_gate.json"
     if not path.is_file():
+        _warn_gate_unavailable("NOT RUN", path)
         return {"release_gate": "NOT RUN", "failing": [], "vacuous_passes": []}
     try:
-        payload: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        payload: Any = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
+        _warn_gate_unavailable("UNREADABLE", path)
+        return {"release_gate": "UNREADABLE", "failing": [], "vacuous_passes": []}
+    # Parsing is not understanding. A file that is valid JSON but not a verdict -- `{}`, a list,
+    # a payload whose state is blank -- would otherwise reach the page as an empty banner or no
+    # banner at all, which is the same failing open as an absent file.
+    if not isinstance(payload, dict) or not str(payload.get("release_gate") or "").strip():
+        _warn_gate_unavailable("UNREADABLE", path)
         return {"release_gate": "UNREADABLE", "failing": [], "vacuous_passes": []}
     return payload
 
